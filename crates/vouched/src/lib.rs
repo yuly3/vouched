@@ -9,8 +9,8 @@
 //! - [`Vouched`] is the derive macro.
 //! - [`VouchedError`] is implemented by generated error enums.
 //! - [`Error`] erases different generated error enums behind one type when the `alloc` feature is enabled.
-//! - [`TooShortError`], [`TooLongError`], [`InvalidCharError`], and [`OutOfRangeNumericError`] are the validation
-//!   error payloads used by generated error enums.
+//! - [`TooShortError`], [`TooLongError`], [`InvalidCharError`], [`OutOfRangeIntegerError`], and
+//!   [`OutOfRangeFloatError`] are the validation error payloads used by generated error enums.
 //!
 //! # Quick start
 //!
@@ -60,7 +60,7 @@
 //! | --- | --- |
 //! | `len(range)` | validates string length by Unicode scalar value count |
 //! | `chars(...)` | validates allowed characters from literals and inclusive char ranges |
-//! | `range(range)` | validates numeric bounds for supported fixed-width integers |
+//! | `range(range)` | validates numeric bounds for supported fixed-width integers, `f32`, and `f64` |
 //! | `cast(try_from(...))` | adds extra fallible integer `TryFrom` implementations before validation |
 //!
 //! `len(...)`, `chars(...)`, `range(...)`, and `cast(...)` can each be specified at most once.
@@ -68,8 +68,9 @@
 //!
 //! `len(...)` and `chars(...)` use `AsRef<str>` and inspect untrimmed Unicode scalar values. Length is not measured in bytes.
 //!
-//! `range(...)` type-checks bound expressions against the inner integer type and generates runtime validation.
-//! It does not prove the range is non-empty.
+//! `range(...)` type-checks bound expressions against the inner numeric type and generates runtime validation.
+//! Float ranges reject an actual `NaN` value as not comparable. Float bound expressions must not evaluate to `NaN`;
+//! Rust float comparison rules make a `NaN` bound ineffective. `range(...)` does not prove the range is non-empty.
 //!
 //! # Validation Semantics
 //!
@@ -102,8 +103,8 @@ pub mod __private {
 }
 
 pub use vouched_core::{
-    InvalidCharError, NumericValue, OutOfRangeNumericError, TooLongError, TooShortError,
-    VouchedError,
+    FloatRangeViolation, FloatValue, IntegerValue, InvalidCharError, OutOfRangeFloatError,
+    OutOfRangeIntegerError, TooLongError, TooShortError, VouchedError,
 };
 pub use vouched_derive::Vouched;
 

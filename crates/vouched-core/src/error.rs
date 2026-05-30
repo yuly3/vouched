@@ -83,76 +83,76 @@ impl fmt::Display for TooLongError {
 impl StdError for TooLongError {}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-enum NumericValueRepr {
+enum IntegerValueRepr {
     Signed(i128),
     Unsigned(u128),
 }
 
-/// Lossless numeric value captured by generated range and cast errors.
+/// Lossless integer value captured by generated integer range and cast errors.
 ///
 /// The representation is private so future integer-like values can be added
 /// without exposing the enum shape. Use the `as_*` methods to recover a
 /// primitive integer only when the conversion is lossless.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct NumericValue(NumericValueRepr);
+pub struct IntegerValue(IntegerValueRepr);
 
-impl NumericValue {
+impl IntegerValue {
     /// Captures a signed integer value.
     pub const fn from_i128(value: i128) -> Self {
-        Self(NumericValueRepr::Signed(value))
+        Self(IntegerValueRepr::Signed(value))
     }
 
     /// Captures an unsigned integer value.
     pub const fn from_u128(value: u128) -> Self {
-        Self(NumericValueRepr::Unsigned(value))
+        Self(IntegerValueRepr::Unsigned(value))
     }
 
     /// Returns the value as `i64` when it fits exactly.
     pub fn as_i64(self) -> Option<i64> {
         match self.0 {
-            NumericValueRepr::Signed(value) => i64::try_from(value).ok(),
-            NumericValueRepr::Unsigned(value) => i64::try_from(value).ok(),
+            IntegerValueRepr::Signed(value) => i64::try_from(value).ok(),
+            IntegerValueRepr::Unsigned(value) => i64::try_from(value).ok(),
         }
     }
 
     /// Returns the value as `u64` when it fits exactly.
     pub fn as_u64(self) -> Option<u64> {
         match self.0 {
-            NumericValueRepr::Signed(value) => u64::try_from(value).ok(),
-            NumericValueRepr::Unsigned(value) => u64::try_from(value).ok(),
+            IntegerValueRepr::Signed(value) => u64::try_from(value).ok(),
+            IntegerValueRepr::Unsigned(value) => u64::try_from(value).ok(),
         }
     }
 
     /// Returns the value as `i128` when it fits exactly.
     pub fn as_i128(self) -> Option<i128> {
         match self.0 {
-            NumericValueRepr::Signed(value) => Some(value),
-            NumericValueRepr::Unsigned(value) => i128::try_from(value).ok(),
+            IntegerValueRepr::Signed(value) => Some(value),
+            IntegerValueRepr::Unsigned(value) => i128::try_from(value).ok(),
         }
     }
 
     /// Returns the value as `u128` when it fits exactly.
     pub fn as_u128(self) -> Option<u128> {
         match self.0 {
-            NumericValueRepr::Signed(value) => u128::try_from(value).ok(),
-            NumericValueRepr::Unsigned(value) => Some(value),
+            IntegerValueRepr::Signed(value) => u128::try_from(value).ok(),
+            IntegerValueRepr::Unsigned(value) => Some(value),
         }
     }
 }
 
-impl fmt::Display for NumericValue {
+impl fmt::Display for IntegerValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.0 {
-            NumericValueRepr::Signed(value) => write!(f, "{value}"),
-            NumericValueRepr::Unsigned(value) => write!(f, "{value}"),
+            IntegerValueRepr::Signed(value) => write!(f, "{value}"),
+            IntegerValueRepr::Unsigned(value) => write!(f, "{value}"),
         }
     }
 }
 
-macro_rules! impl_signed_numeric_value_from {
+macro_rules! impl_signed_integer_value_from {
     ($($ty:ty),* $(,)?) => {
         $(
-            impl From<$ty> for NumericValue {
+            impl From<$ty> for IntegerValue {
                 fn from(value: $ty) -> Self {
                     Self::from_i128(i128::from(value))
                 }
@@ -161,10 +161,10 @@ macro_rules! impl_signed_numeric_value_from {
     };
 }
 
-macro_rules! impl_unsigned_numeric_value_from {
+macro_rules! impl_unsigned_integer_value_from {
     ($($ty:ty),* $(,)?) => {
         $(
-            impl From<$ty> for NumericValue {
+            impl From<$ty> for IntegerValue {
                 fn from(value: $ty) -> Self {
                     Self::from_u128(u128::from(value))
                 }
@@ -173,15 +173,15 @@ macro_rules! impl_unsigned_numeric_value_from {
     };
 }
 
-impl_signed_numeric_value_from!(i8, i16, i32, i64, i128);
-impl_unsigned_numeric_value_from!(u8, u16, u32, u64, u128);
+impl_signed_integer_value_from!(i8, i16, i32, i64, i128);
+impl_unsigned_integer_value_from!(u8, u16, u32, u64, u128);
 
 #[cfg(feature = "valuable")]
-impl Valuable for NumericValue {
+impl Valuable for IntegerValue {
     fn as_value(&self) -> Value<'_> {
         match self.0 {
-            NumericValueRepr::Signed(value) => Value::I128(value),
-            NumericValueRepr::Unsigned(value) => Value::U128(value),
+            IntegerValueRepr::Signed(value) => Value::I128(value),
+            IntegerValueRepr::Unsigned(value) => Value::U128(value),
         }
     }
 
@@ -190,17 +190,132 @@ impl Valuable for NumericValue {
     }
 }
 
-/// Error returned when a numeric newtype is outside its `range` bounds.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct OutOfRangeNumericError {
-    actual: NumericValue,
-    lower_bound: Option<NumericValue>,
-    upper_bound: Option<NumericValue>,
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+enum FloatValueRepr {
+    F32(u32),
+    F64(u64),
 }
 
-impl OutOfRangeNumericError {
+/// Lossless float value captured by generated float range errors.
+///
+/// The value stores the original `to_bits()` representation so `NaN` payloads
+/// and signed zero can be preserved while keeping equality total.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct FloatValue(FloatValueRepr);
+
+impl FloatValue {
+    /// Captures an `f32` value by its bit representation.
+    pub const fn from_f32(value: f32) -> Self {
+        Self(FloatValueRepr::F32(value.to_bits()))
+    }
+
+    /// Captures an `f64` value by its bit representation.
+    pub const fn from_f64(value: f64) -> Self {
+        Self(FloatValueRepr::F64(value.to_bits()))
+    }
+
+    /// Returns the captured `f32` value when this value came from `f32`.
+    pub const fn as_f32(self) -> Option<f32> {
+        match self.0 {
+            FloatValueRepr::F32(bits) => Some(f32::from_bits(bits)),
+            FloatValueRepr::F64(_) => None,
+        }
+    }
+
+    /// Returns the captured `f64` value when this value came from `f64`.
+    pub const fn as_f64(self) -> Option<f64> {
+        match self.0 {
+            FloatValueRepr::F32(_) => None,
+            FloatValueRepr::F64(bits) => Some(f64::from_bits(bits)),
+        }
+    }
+}
+
+impl From<f32> for FloatValue {
+    fn from(value: f32) -> Self {
+        Self::from_f32(value)
+    }
+}
+
+impl From<f64> for FloatValue {
+    fn from(value: f64) -> Self {
+        Self::from_f64(value)
+    }
+}
+
+impl fmt::Display for FloatValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.0 {
+            FloatValueRepr::F32(bits) => {
+                let value = f32::from_bits(bits);
+                write!(f, "{value}")
+            }
+            FloatValueRepr::F64(bits) => {
+                let value = f64::from_bits(bits);
+                write!(f, "{value}")
+            }
+        }
+    }
+}
+
+#[cfg(feature = "valuable")]
+impl Valuable for FloatValue {
+    fn as_value(&self) -> Value<'_> {
+        match self.0 {
+            FloatValueRepr::F32(bits) => Value::F32(f32::from_bits(bits)),
+            FloatValueRepr::F64(bits) => Value::F64(f64::from_bits(bits)),
+        }
+    }
+
+    fn visit(&self, visit: &mut dyn Visit) {
+        visit.visit_value(self.as_value());
+    }
+}
+
+/// Reason a float range validation failed.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum FloatRangeViolation {
+    /// The value could not be compared to the configured bounds, such as `NaN`.
+    NotComparable,
+    /// The value was below the lower bound.
+    BelowLowerBound,
+    /// The value was above the upper bound.
+    AboveUpperBound,
+}
+
+impl FloatRangeViolation {
+    /// Returns the stable observation string for this violation.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::NotComparable => "not_comparable",
+            Self::BelowLowerBound => "below_lower_bound",
+            Self::AboveUpperBound => "above_upper_bound",
+        }
+    }
+}
+
+#[cfg(feature = "valuable")]
+impl Valuable for FloatRangeViolation {
+    fn as_value(&self) -> Value<'_> {
+        Value::String(self.as_str())
+    }
+
+    fn visit(&self, visit: &mut dyn Visit) {
+        visit.visit_value(self.as_value());
+    }
+}
+
+/// Error returned when an integer newtype is outside its `range` bounds.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OutOfRangeIntegerError {
+    actual: IntegerValue,
+    lower_bound: Option<IntegerValue>,
+    upper_bound: Option<IntegerValue>,
+}
+
+impl OutOfRangeIntegerError {
     /// Creates an out-of-range error with the value that failed validation.
-    pub const fn new(actual: NumericValue) -> Self {
+    pub const fn new(actual: IntegerValue) -> Self {
         Self {
             actual,
             lower_bound: None,
@@ -210,7 +325,7 @@ impl OutOfRangeNumericError {
 
     /// Returns an out-of-range error with the lower bound that failed.
     #[must_use]
-    pub const fn with_lower_bound(self, lower_bound: NumericValue) -> Self {
+    pub const fn with_lower_bound(self, lower_bound: IntegerValue) -> Self {
         Self {
             actual: self.actual,
             lower_bound: Some(lower_bound),
@@ -220,7 +335,7 @@ impl OutOfRangeNumericError {
 
     /// Returns an out-of-range error with the upper bound that failed.
     #[must_use]
-    pub const fn with_upper_bound(self, upper_bound: NumericValue) -> Self {
+    pub const fn with_upper_bound(self, upper_bound: IntegerValue) -> Self {
         Self {
             actual: self.actual,
             lower_bound: self.lower_bound,
@@ -229,22 +344,22 @@ impl OutOfRangeNumericError {
     }
 
     /// Returns the actual value that failed validation.
-    pub const fn actual(&self) -> NumericValue {
+    pub const fn actual(&self) -> IntegerValue {
         self.actual
     }
 
     /// Returns the lower bound that failed when it could be captured losslessly.
-    pub const fn lower_bound(&self) -> Option<NumericValue> {
+    pub const fn lower_bound(&self) -> Option<IntegerValue> {
         self.lower_bound
     }
 
     /// Returns the upper bound that failed when it could be captured losslessly.
-    pub const fn upper_bound(&self) -> Option<NumericValue> {
+    pub const fn upper_bound(&self) -> Option<IntegerValue> {
         self.upper_bound
     }
 }
 
-impl fmt::Display for OutOfRangeNumericError {
+impl fmt::Display for OutOfRangeIntegerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let actual = self.actual;
         match (self.lower_bound, self.upper_bound) {
@@ -271,17 +386,107 @@ impl fmt::Display for OutOfRangeNumericError {
     }
 }
 
-impl StdError for OutOfRangeNumericError {}
+impl StdError for OutOfRangeIntegerError {}
+
+/// Error returned when a float newtype is outside its `range` bounds.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OutOfRangeFloatError {
+    actual: FloatValue,
+    lower_bound: Option<FloatValue>,
+    upper_bound: Option<FloatValue>,
+    violation: FloatRangeViolation,
+}
+
+impl OutOfRangeFloatError {
+    /// Creates an error for a value that cannot be compared to range bounds.
+    pub const fn not_comparable(actual: FloatValue) -> Self {
+        Self {
+            actual,
+            lower_bound: None,
+            upper_bound: None,
+            violation: FloatRangeViolation::NotComparable,
+        }
+    }
+
+    /// Creates an error for a value below the lower bound.
+    pub const fn below_lower_bound(actual: FloatValue, lower_bound: FloatValue) -> Self {
+        Self {
+            actual,
+            lower_bound: Some(lower_bound),
+            upper_bound: None,
+            violation: FloatRangeViolation::BelowLowerBound,
+        }
+    }
+
+    /// Creates an error for a value above the upper bound.
+    pub const fn above_upper_bound(actual: FloatValue, upper_bound: FloatValue) -> Self {
+        Self {
+            actual,
+            lower_bound: None,
+            upper_bound: Some(upper_bound),
+            violation: FloatRangeViolation::AboveUpperBound,
+        }
+    }
+
+    /// Returns the actual value that failed validation.
+    pub const fn actual(&self) -> FloatValue {
+        self.actual
+    }
+
+    /// Returns the lower bound that failed.
+    pub const fn lower_bound(&self) -> Option<FloatValue> {
+        self.lower_bound
+    }
+
+    /// Returns the upper bound that failed.
+    pub const fn upper_bound(&self) -> Option<FloatValue> {
+        self.upper_bound
+    }
+
+    /// Returns why range validation failed.
+    pub const fn violation(&self) -> FloatRangeViolation {
+        self.violation
+    }
+}
+
+impl fmt::Display for OutOfRangeFloatError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let actual = self.actual;
+        match self.violation {
+            FloatRangeViolation::NotComparable => write!(f, "not comparable (value {actual})"),
+            FloatRangeViolation::BelowLowerBound => match self.lower_bound {
+                Some(lower_bound) => {
+                    write!(
+                        f,
+                        "out of range (value {actual}, lower bound {lower_bound})"
+                    )
+                }
+                None => write!(f, "out of range (value {actual})"),
+            },
+            FloatRangeViolation::AboveUpperBound => match self.upper_bound {
+                Some(upper_bound) => {
+                    write!(
+                        f,
+                        "out of range (value {actual}, upper bound {upper_bound})"
+                    )
+                }
+                None => write!(f, "out of range (value {actual})"),
+            },
+        }
+    }
+}
+
+impl StdError for OutOfRangeFloatError {}
 
 #[cfg(feature = "valuable")]
-static OUT_OF_RANGE_NUMERIC_ERROR_FIELDS: &[NamedField<'static>] = &[
+static OUT_OF_RANGE_INTEGER_ERROR_FIELDS: &[NamedField<'static>] = &[
     NamedField::new("actual"),
     NamedField::new("lower_bound"),
     NamedField::new("upper_bound"),
 ];
 
 #[cfg(feature = "valuable")]
-impl Valuable for OutOfRangeNumericError {
+impl Valuable for OutOfRangeIntegerError {
     fn as_value(&self) -> Value<'_> {
         Value::Structable(self)
     }
@@ -293,18 +498,53 @@ impl Valuable for OutOfRangeNumericError {
             self.upper_bound.as_value(),
         ];
         visit.visit_named_fields(&NamedValues::new(
-            OUT_OF_RANGE_NUMERIC_ERROR_FIELDS,
+            OUT_OF_RANGE_INTEGER_ERROR_FIELDS,
             &values,
         ));
     }
 }
 
 #[cfg(feature = "valuable")]
-impl Structable for OutOfRangeNumericError {
+impl Structable for OutOfRangeIntegerError {
     fn definition(&self) -> StructDef<'_> {
         StructDef::new_static(
-            "OutOfRangeNumericError",
-            Fields::Named(OUT_OF_RANGE_NUMERIC_ERROR_FIELDS),
+            "OutOfRangeIntegerError",
+            Fields::Named(OUT_OF_RANGE_INTEGER_ERROR_FIELDS),
+        )
+    }
+}
+
+#[cfg(feature = "valuable")]
+static OUT_OF_RANGE_FLOAT_ERROR_FIELDS: &[NamedField<'static>] = &[
+    NamedField::new("actual"),
+    NamedField::new("lower_bound"),
+    NamedField::new("upper_bound"),
+    NamedField::new("violation"),
+];
+
+#[cfg(feature = "valuable")]
+impl Valuable for OutOfRangeFloatError {
+    fn as_value(&self) -> Value<'_> {
+        Value::Structable(self)
+    }
+
+    fn visit(&self, visit: &mut dyn Visit) {
+        let values = [
+            self.actual.as_value(),
+            self.lower_bound.as_value(),
+            self.upper_bound.as_value(),
+            self.violation.as_value(),
+        ];
+        visit.visit_named_fields(&NamedValues::new(OUT_OF_RANGE_FLOAT_ERROR_FIELDS, &values));
+    }
+}
+
+#[cfg(feature = "valuable")]
+impl Structable for OutOfRangeFloatError {
+    fn definition(&self) -> StructDef<'_> {
+        StructDef::new_static(
+            "OutOfRangeFloatError",
+            Fields::Named(OUT_OF_RANGE_FLOAT_ERROR_FIELDS),
         )
     }
 }
@@ -358,8 +598,12 @@ pub trait VouchedError: StdError + Send + Sync + 'static {
     fn as_too_long(&self) -> Option<&TooLongError> {
         None
     }
-    /// Returns the underlying numeric out-of-range error when this is that variant.
-    fn as_out_of_range_numeric(&self) -> Option<&OutOfRangeNumericError> {
+    /// Returns the underlying integer out-of-range error when this is that variant.
+    fn as_out_of_range_integer(&self) -> Option<&OutOfRangeIntegerError> {
+        None
+    }
+    /// Returns the underlying float out-of-range error when this is that variant.
+    fn as_out_of_range_float(&self) -> Option<&OutOfRangeFloatError> {
         None
     }
     /// Returns the underlying invalid-character error when this is that variant.

@@ -55,6 +55,7 @@ pub(super) struct ErrorConfig {
 pub(super) enum ErrorKind {
     TooShort,
     TooLong,
-    OutOfRange,
+    OutOfRangeInteger,
+    OutOfRangeFloat,
     InvalidChar,
 }

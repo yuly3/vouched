@@ -20,6 +20,6 @@ mod tests {
         let err = Count::try_from(9_u8).err();
         assert!(err
             .as_ref()
-            .is_some_and(|err| err.as_out_of_range_numeric().is_some()));
+            .is_some_and(|err| err.as_out_of_range_integer().is_some()));
     }
 }

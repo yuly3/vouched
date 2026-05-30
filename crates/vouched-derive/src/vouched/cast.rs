@@ -7,6 +7,14 @@ pub(crate) const SUPPORTED_INT_TYPES: &[&str] = &[
     "i8", "i16", "i32", "i64", "i128", "u8", "u16", "u32", "u64", "u128",
 ];
 
+/// Supported float types for range operations
+pub(crate) const SUPPORTED_FLOAT_TYPES: &[&str] = &["f32", "f64"];
+
+/// Supported types for range operations
+pub(crate) const SUPPORTED_RANGE_TYPES: &[&str] = &[
+    "i8", "i16", "i32", "i64", "i128", "u8", "u16", "u32", "u64", "u128", "f32", "f64",
+];
+
 /// Returns the bit width and signedness of a supported integer type
 fn int_type_info(ty: &str) -> Option<(u8, bool)> {
     match ty {
@@ -26,6 +34,14 @@ fn int_type_info(ty: &str) -> Option<(u8, bool)> {
 
 pub(crate) fn is_supported_int_type(ty: &Type) -> bool {
     SUPPORTED_INT_TYPES.contains(&type_to_string(ty).as_str())
+}
+
+pub(crate) fn is_supported_float_type(ty: &Type) -> bool {
+    SUPPORTED_FLOAT_TYPES.contains(&type_to_string(ty).as_str())
+}
+
+pub(crate) fn is_supported_range_type(ty: &Type) -> bool {
+    SUPPORTED_RANGE_TYPES.contains(&type_to_string(ty).as_str())
 }
 
 /// Returns true if converting from `src` to `dst` is fallible (potentially lossy)
