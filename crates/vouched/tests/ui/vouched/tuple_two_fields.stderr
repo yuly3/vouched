@@ -1,0 +1,6 @@
+error: Vouched can only be derived for tuple structs with exactly one field (newtype pattern)
+ --> tests/ui/vouched/tuple_two_fields.rs:4:1
+  |
+4 | / #[vouched(len(1..))]
+5 | | struct NotVouched(i32, i32);
+  | |____________________________^

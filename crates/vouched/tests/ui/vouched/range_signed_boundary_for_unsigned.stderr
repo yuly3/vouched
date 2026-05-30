@@ -1,0 +1,12 @@
+error[E0600]: cannot apply unary operator `-` to type `u32`
+ --> tests/ui/vouched/range_signed_boundary_for_unsigned.rs:4:17
+  |
+4 | #[vouched(range(-1..=10))]
+  |                 ^^ cannot apply unary operator `-`
+  |
+  = note: unsigned values cannot be negated
+help: you may have meant the maximum value of `u32`
+  |
+4 - #[vouched(range(-1..=10))]
+4 + #[vouched(range(u32::MAX..=10))]
+  |

@@ -1,0 +1,5 @@
+error: `error = Name` is not supported; use `error(name = Name)`
+ --> tests/ui/vouched/error_equals.rs:4:19
+  |
+4 | #[vouched(error = CustomError, len(1..))]
+  |                   ^^^^^^^^^^^

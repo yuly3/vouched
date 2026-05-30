@@ -1,0 +1,5 @@
+error: error(...) can only be specified once
+ --> tests/ui/vouched/duplicate_error_name.rs:5:1
+  |
+5 | #[vouched(error(name = SecondError))]
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

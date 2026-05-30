@@ -1,0 +1,7 @@
+error: Vouched requires at least one validation marker (len/range/chars) or cast(...) in #[vouched(...)]
+ --> tests/ui/vouched/missing_validations.rs:3:10
+  |
+3 | #[derive(Vouched)]
+  |          ^^^^^^^
+  |
+  = note: this error originates in the derive macro `Vouched` (in Nightly builds, run with -Z macro-backtrace for more info)

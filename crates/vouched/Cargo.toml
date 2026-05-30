@@ -1,0 +1,47 @@
+[package]
+categories = [
+    "rust-patterns",
+]
+description = "A derive macro for validated tuple-struct wrappers."
+documentation = "https://docs.rs/vouched"
+edition.workspace = true
+keywords.workspace = true
+license.workspace = true
+name = "vouched"
+readme.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+vouched-core.workspace = true
+vouched-derive.workspace = true
+
+[features]
+default = [
+    "std",
+]
+
+alloc = [
+    "vouched-core/alloc",
+]
+std = [
+    "alloc",
+    "vouched-core/std",
+]
+valuable = [
+    "alloc",
+    "vouched-core/valuable",
+]
+
+[dev-dependencies]
+serde_json.workspace = true
+trybuild.workspace = true
+
+valuable-serde.workspace = true
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+all-features = true

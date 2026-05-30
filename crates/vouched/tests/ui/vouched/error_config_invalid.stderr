@@ -1,0 +1,29 @@
+error: error(...) requires at least one option: name = ... or vis = ...
+ --> tests/ui/vouched/error_config_invalid.rs:4:17
+  |
+4 | #[vouched(error(), len(1..))]
+  |                 ^
+
+error: error name can only be specified once
+ --> tests/ui/vouched/error_config_invalid.rs:8:36
+  |
+8 | #[vouched(error(name = FirstError, name = SecondError), len(1..))]
+  |                                    ^^^^
+
+error: error vis can only be specified once
+  --> tests/ui/vouched/error_config_invalid.rs:12:35
+   |
+12 | #[vouched(error(vis = pub(crate), vis = pub(super)), len(1..))]
+   |                                   ^^^
+
+error: error vis must start with `pub`, such as `pub` or `pub(crate)`
+  --> tests/ui/vouched/error_config_invalid.rs:16:23
+   |
+16 | #[vouched(error(vis = crate), len(1..))]
+   |                       ^^^^^
+
+error: unknown error option. Supported: name = ..., vis = ...
+  --> tests/ui/vouched/error_config_invalid.rs:20:17
+   |
+20 | #[vouched(error(label = Bad), len(1..))]
+   |                 ^^^^^

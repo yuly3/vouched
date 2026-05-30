@@ -1,0 +1,15 @@
+error[E0308]: mismatched types
+ --> tests/ui/vouched/range_float_for_integer.rs:4:17
+  |
+4 | #[vouched(range(0.5..=10.5))]
+  |                 ^^^ expected `i32`, found floating-point number
+5 | struct IntegerRange(i32);
+  |                     --- expected due to this
+
+error[E0308]: mismatched types
+ --> tests/ui/vouched/range_float_for_integer.rs:4:23
+  |
+4 | #[vouched(range(0.5..=10.5))]
+  |                       ^^^^ expected `i32`, found floating-point number
+5 | struct IntegerRange(i32);
+  |                     --- expected due to this

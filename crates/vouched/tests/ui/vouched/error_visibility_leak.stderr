@@ -1,0 +1,10 @@
+error[E0446]: private type `PublicNameError` in public interface
+ --> tests/ui/vouched/error_visibility_leak.rs:3:10
+  |
+3 | #[derive(Vouched)]
+  |          ^^^^^^^
+  |          |
+  |          can't leak private type
+  |          `PublicNameError` declared as private
+  |
+  = note: this error originates in the derive macro `Vouched` (in Nightly builds, run with -Z macro-backtrace for more info)

@@ -1,0 +1,7 @@
+error: cast(try_from(...)) requires at least one type. Empty type list is not allowed.
+ --> tests/ui/vouched/cast_empty_list.rs:4:10
+  |
+4 | #[derive(Vouched)]
+  |          ^^^^^^^
+  |
+  = note: this error originates in the derive macro `Vouched` (in Nightly builds, run with -Z macro-backtrace for more info)

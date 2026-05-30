@@ -1,0 +1,5 @@
+error: cast(try_from(i32)) is redundant: source type is the same as inner type
+ --> tests/ui/vouched/cast_same_type.rs:5:40
+  |
+5 | #[vouched(range(0..100), cast(try_from(i32)))]
+  |                                        ^^^

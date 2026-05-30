@@ -1,0 +1,35 @@
+[package]
+description = "Core error types for vouched."
+documentation = "https://docs.rs/vouched-core"
+edition.workspace = true
+keywords.workspace = true
+license.workspace = true
+name = "vouched-core"
+readme.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+valuable = { workspace = true, optional = true }
+
+[features]
+default = [
+    "std",
+]
+
+alloc = [
+]
+std = [
+    "alloc",
+]
+valuable = [
+    "alloc",
+    "dep:valuable",
+]
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+all-features = true

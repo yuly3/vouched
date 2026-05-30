@@ -1,0 +1,25 @@
+error[E0308]: mismatched types
+ --> tests/ui/vouched/range_const_type_mismatch.rs:7:17
+  |
+7 | #[vouched(range(LOWER..=UPPER))]
+  |                 ^^^^^ expected `i32`, found `u32`
+8 | struct SignedRange(i32);
+  |                    --- expected due to this
+  |
+help: you can convert a `u32` to an `i32` and panic if the converted value doesn't fit
+  |
+7 | #[vouched(range(LOWER.try_into().unwrap()..=UPPER))]
+  |                      ++++++++++++++++++++
+
+error[E0308]: mismatched types
+ --> tests/ui/vouched/range_const_type_mismatch.rs:7:25
+  |
+7 | #[vouched(range(LOWER..=UPPER))]
+  |                         ^^^^^ expected `i32`, found `u32`
+8 | struct SignedRange(i32);
+  |                    --- expected due to this
+  |
+help: you can convert a `u32` to an `i32` and panic if the converted value doesn't fit
+  |
+7 | #[vouched(range(LOWER..=UPPER.try_into().unwrap()))]
+  |                              ++++++++++++++++++++

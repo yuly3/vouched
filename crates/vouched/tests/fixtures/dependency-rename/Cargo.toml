@@ -1,0 +1,11 @@
+[package]
+edition = "2024"
+name = "vouched-dependency-rename-fixture"
+publish = false
+rust-version = "1.86"
+version = "0.0.0"
+
+[workspace]
+
+[dependencies]
+nv = { package = "vouched", path = "../../.." }

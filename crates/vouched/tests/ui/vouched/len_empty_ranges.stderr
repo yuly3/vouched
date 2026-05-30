@@ -1,0 +1,23 @@
+error: len marker range is empty; use a non-empty range such as `0..=0` or adjust the bounds
+ --> tests/ui/vouched/len_empty_ranges.rs:4:15
+  |
+4 | #[vouched(len(..0))]
+  |               ^^^
+
+error: len marker range is empty; use a non-empty range such as `0..=0` or adjust the bounds
+ --> tests/ui/vouched/len_empty_ranges.rs:8:15
+  |
+8 | #[vouched(len(0..0))]
+  |               ^^^^
+
+error: len marker range is empty; use a non-empty range such as `0..=0` or adjust the bounds
+  --> tests/ui/vouched/len_empty_ranges.rs:12:15
+   |
+12 | #[vouched(len(1..1))]
+   |               ^^^^
+
+error: len marker range is empty; use a non-empty range such as `0..=0` or adjust the bounds
+  --> tests/ui/vouched/len_empty_ranges.rs:16:15
+   |
+16 | #[vouched(len(1..=0))]
+   |               ^^^^^

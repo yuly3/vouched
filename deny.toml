@@ -1,0 +1,25 @@
+[graph]
+exclude-unpublished = true
+
+[advisories]
+ignore = [
+]
+unmaintained = "none"
+
+[licenses]
+allow = [
+    "Apache-2.0",
+    "MIT",
+    "Unicode-3.0",
+]
+confidence-threshold = 0.8
+
+[bans]
+highlight = "all"
+multiple-versions = "deny"
+
+[sources]
+allow-git = [
+]
+unknown-git = "warn"
+unknown-registry = "warn"
