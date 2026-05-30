@@ -9,7 +9,8 @@ impl ErrorKind {
         match self {
             Self::TooShort => quote! { TooShort(#core::TooShortError), },
             Self::TooLong => quote! { TooLong(#core::TooLongError), },
-            Self::OutOfRange => quote! { OutOfRange(#core::OutOfRangeNumericError), },
+            Self::OutOfRangeInteger => quote! { OutOfRange(#core::OutOfRangeIntegerError), },
+            Self::OutOfRangeFloat => quote! { OutOfRange(#core::OutOfRangeFloatError), },
             Self::InvalidChar => quote! { InvalidChar(#core::InvalidCharError), },
         }
     }
@@ -22,7 +23,7 @@ impl ErrorKind {
             Self::TooLong => {
                 quote! { #error_ident::TooLong(e) => ::core::fmt::Display::fmt(e, f), }
             }
-            Self::OutOfRange => {
+            Self::OutOfRangeInteger | Self::OutOfRangeFloat => {
                 quote! { #error_ident::OutOfRange(e) => ::core::fmt::Display::fmt(e, f), }
             }
             Self::InvalidChar => {
@@ -39,7 +40,7 @@ impl ErrorKind {
             Self::TooLong => {
                 quote! { #error_ident::TooLong(e) => ::core::option::Option::Some(e), }
             }
-            Self::OutOfRange => {
+            Self::OutOfRangeInteger | Self::OutOfRangeFloat => {
                 quote! { #error_ident::OutOfRange(e) => ::core::option::Option::Some(e), }
             }
             Self::InvalidChar => {
@@ -66,8 +67,16 @@ impl ErrorKind {
                     }
                 }
             },
-            Self::OutOfRange => quote! {
-                fn as_out_of_range_numeric(&self) -> ::core::option::Option<&#core::OutOfRangeNumericError> {
+            Self::OutOfRangeInteger => quote! {
+                fn as_out_of_range_integer(&self) -> ::core::option::Option<&#core::OutOfRangeIntegerError> {
+                    match self {
+                        #error_ident::OutOfRange(e) => ::core::option::Option::Some(e),
+                        _ => ::core::option::Option::None,
+                    }
+                }
+            },
+            Self::OutOfRangeFloat => quote! {
+                fn as_out_of_range_float(&self) -> ::core::option::Option<&#core::OutOfRangeFloatError> {
                     match self {
                         #error_ident::OutOfRange(e) => ::core::option::Option::Some(e),
                         _ => ::core::option::Option::None,

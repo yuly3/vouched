@@ -1,0 +1,25 @@
+error[E0308]: mismatched types
+ --> tests/ui/vouched/range_integer_bound_for_float.rs:4:17
+  |
+4 | #[vouched(range(0..=1))]
+  |                 ^ expected `f64`, found integer
+5 | struct FloatRange(f64);
+  |                   --- expected due to this
+  |
+help: use a float literal
+  |
+4 | #[vouched(range(0.0..=1))]
+  |                  ++
+
+error[E0308]: mismatched types
+ --> tests/ui/vouched/range_integer_bound_for_float.rs:4:21
+  |
+4 | #[vouched(range(0..=1))]
+  |                     ^ expected `f64`, found integer
+5 | struct FloatRange(f64);
+  |                   --- expected due to this
+  |
+help: use a float literal
+  |
+4 | #[vouched(range(0..=1.0))]
+  |                      ++

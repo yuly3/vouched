@@ -31,10 +31,14 @@ pub(super) fn extract_inner_ty(input: &DeriveInput) -> syn::Result<syn::Type> {
     }
 }
 
-pub(super) fn error_kinds_for_markers(markers: &[Marker]) -> Vec<ErrorKind> {
+pub(super) fn error_kinds_for_markers(
+    markers: &[Marker],
+    range_error_kind: Option<ErrorKind>,
+) -> Vec<ErrorKind> {
     let mut needs_too_short = false;
     let mut needs_too_long = false;
-    let mut needs_out_of_range = false;
+    let mut needs_out_of_range_integer = false;
+    let mut needs_out_of_range_float = false;
     let mut needs_invalid_char = false;
 
     for marker in markers {
@@ -47,7 +51,11 @@ pub(super) fn error_kinds_for_markers(markers: &[Marker]) -> Vec<ErrorKind> {
                     needs_too_long = true;
                 }
             }
-            Marker::Range { .. } => needs_out_of_range = true,
+            Marker::Range { .. } => match range_error_kind {
+                Some(ErrorKind::OutOfRangeInteger) => needs_out_of_range_integer = true,
+                Some(ErrorKind::OutOfRangeFloat) => needs_out_of_range_float = true,
+                _ => {}
+            },
             Marker::Chars { .. } => needs_invalid_char = true,
         }
     }
@@ -59,8 +67,11 @@ pub(super) fn error_kinds_for_markers(markers: &[Marker]) -> Vec<ErrorKind> {
     if needs_too_long {
         kinds.push(ErrorKind::TooLong);
     }
-    if needs_out_of_range {
-        kinds.push(ErrorKind::OutOfRange);
+    if needs_out_of_range_integer {
+        kinds.push(ErrorKind::OutOfRangeInteger);
+    }
+    if needs_out_of_range_float {
+        kinds.push(ErrorKind::OutOfRangeFloat);
     }
     if needs_invalid_char {
         kinds.push(ErrorKind::InvalidChar);

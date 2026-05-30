@@ -28,11 +28,14 @@ use proc_macro::TokenStream;
 /// | --- | --- |
 /// | `len(N..M)` / `len(N..=M)` / `len(N..)` / `len(..M)` / `len(..=M)` | validate string length by Unicode scalar value count |
 /// | `chars("abc", '0'..='9', '_')` | validate allowed characters |
-/// | `range(N..M)` / `range(N..=M)` / `range(N..)` / `range(..M)` / `range(..=M)` | validate numeric bounds |
+/// | `range(N..M)` / `range(N..=M)` / `range(N..)` / `range(..M)` / `range(..=M)` | validate numeric bounds for fixed-width integers, `f32`, and `f64` |
 /// | `cast(try_from(i64, u32))` | add fallible integer source types |
 /// | `error(name = CustomError, vis = pub(crate))` | override the generated error enum name or visibility |
 ///
 /// `error = Name` is not supported.
+///
+/// `cast(try_from(...))` remains integer-only. Float `range(...)` validation rejects an actual `NaN` value, and float
+/// bound expressions must not evaluate to `NaN` because Rust float comparison rules make that boundary ineffective.
 ///
 /// # Error Visibility
 ///

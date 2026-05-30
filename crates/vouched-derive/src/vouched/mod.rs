@@ -25,7 +25,10 @@ mod model;
 mod parse;
 
 use analyze::{error_kinds_for_markers, extract_inner_ty};
-use cast::{SUPPORTED_INT_TYPES, is_supported_int_type, validate_cast_config};
+use cast::{
+    SUPPORTED_RANGE_TYPES, is_supported_float_type, is_supported_int_type, is_supported_range_type,
+    validate_cast_config,
+};
 use model::ErrorKind;
 use parse::parse_vouched_args;
 
@@ -52,6 +55,7 @@ fn build_plan(input: &DeriveInput) -> syn::Result<DerivePlan> {
     let (markers, cast_config, configured_error_config) = parse_vouched_args(&input.attrs)?;
     let inner_ty = extract_inner_ty(input)?;
     validate_range_markers(&markers, &inner_ty)?;
+    let range_error_kind = range_error_kind_for_type(&inner_ty);
 
     // Validate cast configuration
     let validated_cast_types = if let Some(config) = cast_config.as_ref() {
@@ -61,9 +65,9 @@ fn build_plan(input: &DeriveInput) -> syn::Result<DerivePlan> {
     };
 
     // If cast is used, OutOfRange error is needed for cast failures
-    let mut error_kinds = error_kinds_for_markers(&markers);
-    if !validated_cast_types.is_empty() && !error_kinds.contains(&ErrorKind::OutOfRange) {
-        error_kinds.push(ErrorKind::OutOfRange);
+    let mut error_kinds = error_kinds_for_markers(&markers, range_error_kind);
+    if !validated_cast_types.is_empty() && !error_kinds.contains(&ErrorKind::OutOfRangeInteger) {
+        error_kinds.push(ErrorKind::OutOfRangeInteger);
     }
 
     let configured_error = configured_error_config.unwrap_or_default();
@@ -90,17 +94,27 @@ fn validate_range_markers(markers: &[model::Marker], inner_ty: &Type) -> syn::Re
     if markers
         .iter()
         .any(|marker| matches!(marker, model::Marker::Range { .. }))
-        && !is_supported_int_type(inner_ty)
+        && !is_supported_range_type(inner_ty)
     {
         return Err(syn::Error::new_spanned(
             inner_ty,
             format!(
-                "range(...) is only supported for integer types: {}",
-                SUPPORTED_INT_TYPES.join(", ")
+                "range(...) is only supported for integer and float types: {}",
+                SUPPORTED_RANGE_TYPES.join(", ")
             ),
         ));
     }
     Ok(())
+}
+
+fn range_error_kind_for_type(inner_ty: &Type) -> Option<ErrorKind> {
+    if is_supported_int_type(inner_ty) {
+        Some(ErrorKind::OutOfRangeInteger)
+    } else if is_supported_float_type(inner_ty) {
+        Some(ErrorKind::OutOfRangeFloat)
+    } else {
+        None
+    }
 }
 
 fn resolve_core_path(span: proc_macro2::Span) -> TokenStream2 {
@@ -181,8 +195,8 @@ fn expand_derive_with_generics(
                     let value: #inner_ty = <#inner_ty as ::core::convert::TryFrom<#src_ty>>::try_from(src_value)
                         .map_err(|_| {
                             #error_ident::OutOfRange(
-                                #core::OutOfRangeNumericError::new(
-                                    #core::NumericValue::from(src_value),
+                                #core::OutOfRangeIntegerError::new(
+                                    #core::IntegerValue::from(src_value),
                                 ),
                             )
                         })?;

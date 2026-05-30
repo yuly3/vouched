@@ -38,13 +38,17 @@ cargo run -p vouched --example <name>
 ## Supported Markers
 
 - `len(range)`: validates string length by Unicode scalar value count. Leading and trailing whitespace count.
-- `range(range)`: validates numeric bounds for `i8`, `i16`, `i32`, `i64`, `i128`, `u8`, `u16`, `u32`, `u64`, and `u128`.
+- `range(range)`: validates numeric bounds for `i8`, `i16`, `i32`, `i64`, `i128`, `u8`, `u16`, `u32`, `u64`, `u128`, `f32`, and `f64`.
 - `chars(...)`: validates allowed characters by string literal, char literal, or inclusive char range.
 - `cast(try_from(...))`: adds extra fallible integer `TryFrom` implementations before validation.
 
-`len(...)`, `range(...)`, and `chars(...)` can each be specified at most once. To combine character sets, put all sources in one marker, such as `chars('a'..='z', '0'..='9', '_')`.
+`len(...)`, `range(...)`, `chars(...)`, and `cast(...)` can each be specified at most once.
+To combine character sets, put all sources in one marker, such as `chars('a'..='z', '0'..='9', '_')`.
 
-`range(...)` type-checks the bound expressions against the inner integer type and generates runtime validation. It does not guarantee the range is non-empty; for example, a contradictory range remains the user's constraint.
+`range(...)` type-checks the bound expressions against the inner numeric type and generates runtime validation.
+Float ranges reject an actual `NaN` value as not comparable.
+Float bound expressions must not evaluate to `NaN`; Rust float comparison rules make a `NaN` bound ineffective.
+`range(...)` does not guarantee the range is non-empty; for example, a contradictory range remains the user's constraint.
 
 Validation returns the first error encountered. When multiple markers or multiple constraints fail, the exact evaluation order is an implementation detail. The implementation may move expensive whole-string validations later to reduce validation cost.
 
@@ -71,7 +75,7 @@ Rust visibility rules still apply: if a public derived type exposes a less-visib
 - Only tuple structs with exactly one field are supported.
 - The default generated error enum name is `<TypeName>VouchedError`; use `error(name = CustomErrorName)` to avoid local name collisions.
 - `cast(try_from(...))` supports only `i8`, `i16`, `i32`, `i64`, `i128`, `u8`, `u16`, `u32`, `u64`, and `u128`.
-- `range(...)` supports the same integer types as `cast(try_from(...))`; `isize`, `usize`, floats, and custom ordered types are not supported.
+- `range(...)` supports fixed-width integers plus `f32` and `f64`; `isize`, `usize`, and custom ordered types are not supported.
 - `len(...)` works on `AsRef<str>` values and measures untrimmed Unicode scalar values, not bytes.
 - `chars(...)` works on `AsRef<str>` values and validates untrimmed Unicode scalar values.
 

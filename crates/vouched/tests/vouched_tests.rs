@@ -3,7 +3,7 @@
     reason = "derive-generated validation checks currently expand to unit expressions"
 )]
 
-use vouched::{Error, NumericValue, Vouched, VouchedError};
+use vouched::{Error, FloatRangeViolation, FloatValue, IntegerValue, Vouched, VouchedError};
 
 #[derive(Vouched, Debug, Clone, PartialEq, Eq)]
 #[vouched(len(1..=5))]
@@ -56,15 +56,35 @@ fn parse_two(a: String, b: String) -> Result<(NonEmptyString, ShortString), Erro
 }
 
 fn is_out_of_range<T, E: VouchedError>(result: Result<T, E>) -> bool {
-    result.is_err_and(|err| err.as_out_of_range_numeric().is_some())
+    result.is_err_and(|err| err.as_out_of_range_integer().is_some())
 }
 
 fn out_of_range_parts<T, E: VouchedError>(
     result: Result<T, E>,
-) -> Option<(NumericValue, Option<NumericValue>, Option<NumericValue>)> {
+) -> Option<(IntegerValue, Option<IntegerValue>, Option<IntegerValue>)> {
     result.err().and_then(|err| {
-        err.as_out_of_range_numeric()
+        err.as_out_of_range_integer()
             .map(|range| (range.actual(), range.lower_bound(), range.upper_bound()))
+    })
+}
+
+fn out_of_range_float_parts<T, E: VouchedError>(
+    result: Result<T, E>,
+) -> Option<(
+    FloatValue,
+    Option<FloatValue>,
+    Option<FloatValue>,
+    FloatRangeViolation,
+)> {
+    result.err().and_then(|err| {
+        err.as_out_of_range_float().map(|range| {
+            (
+                range.actual(),
+                range.lower_bound(),
+                range.upper_bound(),
+                range.violation(),
+            )
+        })
     })
 }
 
@@ -139,7 +159,7 @@ fn range_errors_include_actual_and_failed_bound() {
         upper.map(|(actual, lower_bound, upper_bound)| (
             actual.as_i64(),
             lower_bound,
-            upper_bound.and_then(NumericValue::as_i64)
+            upper_bound.and_then(IntegerValue::as_i64)
         )),
         Some((Some(100), None, Some(100)))
     );
@@ -148,7 +168,7 @@ fn range_errors_include_actual_and_failed_bound() {
     assert_eq!(
         lower.map(|(actual, lower_bound, upper_bound)| (
             actual.as_i64(),
-            lower_bound.and_then(NumericValue::as_i64),
+            lower_bound.and_then(IntegerValue::as_i64),
             upper_bound
         )),
         Some((Some(-1), Some(0), None))
@@ -298,7 +318,7 @@ fn cast_try_from_i64_validation_fail() {
         out_of_range.map(|(actual, lower_bound, upper_bound)| (
             actual.as_i64(),
             lower_bound,
-            upper_bound.and_then(NumericValue::as_i64)
+            upper_bound.and_then(IntegerValue::as_i64)
         )),
         Some((Some(200), None, Some(100)))
     );
@@ -370,13 +390,13 @@ fn cast_try_from_i128_and_u128_are_supported() {
     assert_eq!(
         out_of_range_parts(Month::try_from(-1_i128))
             .map(|(actual, _, _)| actual)
-            .and_then(NumericValue::as_i128),
+            .and_then(IntegerValue::as_i128),
         Some(-1)
     );
 
     let actual = out_of_range_parts(Month::try_from(u128::MAX)).map(|(actual, _, _)| actual);
-    assert_eq!(actual.and_then(NumericValue::as_u128), Some(u128::MAX));
-    assert_eq!(actual.and_then(NumericValue::as_i128), None);
+    assert_eq!(actual.and_then(IntegerValue::as_u128), Some(u128::MAX));
+    assert_eq!(actual.and_then(IntegerValue::as_i128), None);
 }
 
 /// Vouched without range marker but with cast - OutOfRange is still generated for cast failures
@@ -497,6 +517,145 @@ fn range_bounds_accept_unsuffixed_literals_and_same_type_constants() {
     assert!(TypedRangeBounds::try_from(-1_i64).is_err());
 }
 
+#[derive(Vouched, Debug, Clone, PartialEq)]
+#[vouched(range(0.0..=1.0))]
+struct UnitF32(f32);
+
+#[derive(Vouched, Debug, Clone, PartialEq)]
+#[vouched(range(-1.0..=1.0))]
+struct UnitF64(f64);
+
+#[derive(Vouched, Debug, Clone, PartialEq)]
+#[vouched(range(0.0..1.0))]
+struct HalfOpenF64(f64);
+
+#[test]
+fn float_inclusive_ranges_accept_f32_and_f64() {
+    assert!(UnitF32::try_from(0.5_f32).is_ok());
+    assert!(UnitF32::try_from(1.0_f32).is_ok());
+    assert!(UnitF64::try_from(-1.0_f64).is_ok());
+    assert!(UnitF64::try_from(1.0_f64).is_ok());
+}
+
+#[test]
+fn float_half_open_upper_bound_is_exclusive() {
+    assert!(HalfOpenF64::try_from(0.5_f64).is_ok());
+
+    let out_of_range = out_of_range_float_parts(HalfOpenF64::try_from(1.0_f64));
+    assert_eq!(
+        out_of_range.map(|(actual, lower_bound, upper_bound, violation)| (
+            actual.as_f64().map(f64::to_bits),
+            lower_bound,
+            upper_bound.and_then(FloatValue::as_f64).map(f64::to_bits),
+            violation,
+        )),
+        Some((
+            Some(1.0_f64.to_bits()),
+            None,
+            Some(1.0_f64.to_bits()),
+            FloatRangeViolation::AboveUpperBound,
+        ))
+    );
+}
+
+#[test]
+fn float_range_errors_include_actual_failed_bound_and_violation() {
+    let lower = out_of_range_float_parts(UnitF32::try_from(-0.5_f32));
+    assert_eq!(
+        lower.map(|(actual, lower_bound, upper_bound, violation)| (
+            actual.as_f32().map(f32::to_bits),
+            lower_bound.and_then(FloatValue::as_f32).map(f32::to_bits),
+            upper_bound,
+            violation,
+        )),
+        Some((
+            Some((-0.5_f32).to_bits()),
+            Some(0.0_f32.to_bits()),
+            None,
+            FloatRangeViolation::BelowLowerBound,
+        ))
+    );
+
+    let upper = out_of_range_float_parts(UnitF64::try_from(2.0_f64));
+    assert_eq!(
+        upper.map(|(actual, lower_bound, upper_bound, violation)| (
+            actual.as_f64().map(f64::to_bits),
+            lower_bound,
+            upper_bound.and_then(FloatValue::as_f64).map(f64::to_bits),
+            violation,
+        )),
+        Some((
+            Some(2.0_f64.to_bits()),
+            None,
+            Some(1.0_f64.to_bits()),
+            FloatRangeViolation::AboveUpperBound,
+        ))
+    );
+}
+
+#[test]
+fn float_range_rejects_actual_nan_as_not_comparable() {
+    let nan = f64::from_bits(0x7ff8_0000_0000_0001);
+    let err = UnitF64::try_from(nan).err();
+    let out_of_range = err.as_ref().and_then(|err| err.as_out_of_range_float());
+
+    assert_eq!(
+        out_of_range.map(|range| (
+            range.actual().as_f64().map(f64::to_bits),
+            range.lower_bound(),
+            range.upper_bound(),
+            range.violation(),
+            range.to_string(),
+        )),
+        Some((
+            Some(nan.to_bits()),
+            None,
+            None,
+            FloatRangeViolation::NotComparable,
+            "not comparable (value NaN)".to_owned(),
+        ))
+    );
+}
+
+#[cfg(feature = "valuable")]
+#[test]
+fn out_of_range_float_error_is_serialized_as_structured_value() {
+    use serde_json::json;
+    use valuable_serde::Serializable;
+
+    let value = UnitF64::try_from(2.0_f64).err().and_then(|err| {
+        err.as_out_of_range_float()
+            .map(|range| serde_json::to_value(Serializable::new(range)))
+    });
+
+    assert!(matches!(
+        value,
+        Some(Ok(value)) if value == json!({
+            "actual": 2.0_f64,
+            "lower_bound": null,
+            "upper_bound": 1.0_f64,
+            "violation": "above_upper_bound",
+        })
+    ));
+}
+
+#[test]
+fn float_range_uses_regular_float_comparisons_for_infinities_and_signed_zero() {
+    let above = out_of_range_float_parts(UnitF64::try_from(f64::INFINITY));
+    assert_eq!(
+        above.map(|(_, _, _, violation)| violation),
+        Some(FloatRangeViolation::AboveUpperBound)
+    );
+
+    let below = out_of_range_float_parts(UnitF64::try_from(f64::NEG_INFINITY));
+    assert_eq!(
+        below.map(|(_, _, _, violation)| violation),
+        Some(FloatRangeViolation::BelowLowerBound)
+    );
+
+    assert!(UnitF32::try_from(-0.0_f32).is_ok());
+}
+
 #[derive(Vouched, Debug, Clone, PartialEq, Eq)]
 #[vouched(error(name = CustomLengthError), len(1..=4))]
 struct CustomLength(String);
@@ -533,15 +692,36 @@ fn custom_error_visibility_and_name_are_configurable() {
 }
 
 #[test]
-fn numeric_value_accessors_are_lossless() {
-    let signed = NumericValue::from(-1_i8);
+fn integer_value_accessors_are_lossless() {
+    let signed = IntegerValue::from(-1_i8);
     assert_eq!(signed.as_i64(), Some(-1));
     assert_eq!(signed.as_u64(), None);
     assert_eq!(signed.as_i128(), Some(-1));
     assert_eq!(signed.as_u128(), None);
 
-    let unsigned = NumericValue::from(u128::MAX);
+    let unsigned = IntegerValue::from(u128::MAX);
     assert_eq!(unsigned.as_u64(), None);
     assert_eq!(unsigned.as_i128(), None);
     assert_eq!(unsigned.as_u128(), Some(u128::MAX));
+}
+
+#[test]
+fn float_value_accessors_preserve_original_bits_and_width() {
+    let nan_bits = 0x7fc0_0001_u32;
+    let nan = f32::from_bits(nan_bits);
+    let value = FloatValue::from_f32(nan);
+    assert_eq!(value.as_f32().map(f32::to_bits), Some(nan_bits));
+    assert_eq!(value.as_f64(), None);
+
+    let f64_bits = 0x7ff8_0000_0000_0001_u64;
+    let value = FloatValue::from_f64(f64::from_bits(f64_bits));
+    assert_eq!(value.as_f64().map(f64::to_bits), Some(f64_bits));
+    assert_eq!(value.as_f32(), None);
+
+    assert_eq!(FloatValue::from_f32(nan), FloatValue::from_f32(nan));
+    assert_ne!(
+        FloatValue::from_f32(0.0_f32),
+        FloatValue::from_f32(-0.0_f32)
+    );
+    assert_ne!(FloatValue::from_f32(0.0_f32), FloatValue::from_f64(0.0_f64));
 }

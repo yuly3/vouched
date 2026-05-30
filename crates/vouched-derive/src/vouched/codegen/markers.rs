@@ -2,7 +2,10 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{Ident, LitChar, Type};
 
-use crate::vouched::model::{CharPattern, Marker, RangeBound};
+use crate::vouched::{
+    cast::is_supported_float_type,
+    model::{CharPattern, Marker, RangeBound},
+};
 
 impl CharPattern {
     fn to_match_tokens(&self) -> TokenStream2 {
@@ -110,10 +113,24 @@ fn emit_range_check(
     error_ident: &Ident,
     core: &TokenStream2,
 ) -> TokenStream2 {
+    if is_supported_float_type(inner_ty) {
+        return emit_float_range_check(inner_ty, lower, upper, error_ident, core);
+    }
+
+    emit_integer_range_check(inner_ty, lower, upper, error_ident, core)
+}
+
+fn emit_integer_range_check(
+    inner_ty: &Type,
+    lower: &RangeBound,
+    upper: &RangeBound,
+    error_ident: &Ident,
+    core: &TokenStream2,
+) -> TokenStream2 {
     let lower_check = match lower {
         RangeBound::None => quote! {},
         RangeBound::Inclusive(expr) => {
-            let out_of_range = emit_out_of_range_below(core);
+            let out_of_range = emit_out_of_range_integer_below(core);
             quote! {
                 let lower: #inner_ty = (#expr);
                 if value < lower {
@@ -124,7 +141,7 @@ fn emit_range_check(
             }
         }
         RangeBound::Exclusive(expr) => {
-            let out_of_range = emit_out_of_range_below(core);
+            let out_of_range = emit_out_of_range_integer_below(core);
             quote! {
                 let lower: #inner_ty = (#expr);
                 if value <= lower {
@@ -139,7 +156,7 @@ fn emit_range_check(
     let upper_check = match upper {
         RangeBound::None => quote! {},
         RangeBound::Inclusive(expr) => {
-            let out_of_range = emit_out_of_range_above(core);
+            let out_of_range = emit_out_of_range_integer_above(core);
             quote! {
                 let upper: #inner_ty = (#expr);
                 if value > upper {
@@ -150,7 +167,7 @@ fn emit_range_check(
             }
         }
         RangeBound::Exclusive(expr) => {
-            let out_of_range = emit_out_of_range_above(core);
+            let out_of_range = emit_out_of_range_integer_above(core);
             quote! {
                 let upper: #inner_ty = (#expr);
                 if value >= upper {
@@ -170,21 +187,109 @@ fn emit_range_check(
     }
 }
 
-fn emit_out_of_range_below(core: &TokenStream2) -> TokenStream2 {
+fn emit_float_range_check(
+    inner_ty: &Type,
+    lower: &RangeBound,
+    upper: &RangeBound,
+    error_ident: &Ident,
+    core: &TokenStream2,
+) -> TokenStream2 {
+    let nan_check = quote! {
+        if value.is_nan() {
+            return ::core::result::Result::Err(
+                #error_ident::OutOfRange(
+                    #core::OutOfRangeFloatError::not_comparable(
+                        #core::FloatValue::from(value),
+                    ),
+                ),
+            );
+        }
+    };
+
+    let lower_check = match lower {
+        RangeBound::None => quote! {},
+        RangeBound::Inclusive(expr) => quote! {
+            let lower: #inner_ty = (#expr);
+            if value < lower {
+                return ::core::result::Result::Err(
+                    #error_ident::OutOfRange(
+                        #core::OutOfRangeFloatError::below_lower_bound(
+                            #core::FloatValue::from(value),
+                            #core::FloatValue::from(lower),
+                        ),
+                    ),
+                );
+            }
+        },
+        RangeBound::Exclusive(expr) => quote! {
+            let lower: #inner_ty = (#expr);
+            if value <= lower {
+                return ::core::result::Result::Err(
+                    #error_ident::OutOfRange(
+                        #core::OutOfRangeFloatError::below_lower_bound(
+                            #core::FloatValue::from(value),
+                            #core::FloatValue::from(lower),
+                        ),
+                    ),
+                );
+            }
+        },
+    };
+
+    let upper_check = match upper {
+        RangeBound::None => quote! {},
+        RangeBound::Inclusive(expr) => quote! {
+            let upper: #inner_ty = (#expr);
+            if value > upper {
+                return ::core::result::Result::Err(
+                    #error_ident::OutOfRange(
+                        #core::OutOfRangeFloatError::above_upper_bound(
+                            #core::FloatValue::from(value),
+                            #core::FloatValue::from(upper),
+                        ),
+                    ),
+                );
+            }
+        },
+        RangeBound::Exclusive(expr) => quote! {
+            let upper: #inner_ty = (#expr);
+            if value >= upper {
+                return ::core::result::Result::Err(
+                    #error_ident::OutOfRange(
+                        #core::OutOfRangeFloatError::above_upper_bound(
+                            #core::FloatValue::from(value),
+                            #core::FloatValue::from(upper),
+                        ),
+                    ),
+                );
+            }
+        },
+    };
+
     quote! {
-        #core::OutOfRangeNumericError::new(
-            #core::NumericValue::from(value),
-        )
-        .with_lower_bound(#core::NumericValue::from(lower))
+        {
+            #nan_check
+            #lower_check
+            #upper_check
+        }
     }
 }
 
-fn emit_out_of_range_above(core: &TokenStream2) -> TokenStream2 {
+fn emit_out_of_range_integer_below(core: &TokenStream2) -> TokenStream2 {
     quote! {
-        #core::OutOfRangeNumericError::new(
-            #core::NumericValue::from(value),
+        #core::OutOfRangeIntegerError::new(
+            #core::IntegerValue::from(value),
         )
-        .with_upper_bound(#core::NumericValue::from(upper))
+        .with_lower_bound(#core::IntegerValue::from(lower))
+    }
+}
+
+fn emit_out_of_range_integer_above(core: &TokenStream2) -> TokenStream2 {
+    quote! {
+        #core::OutOfRangeIntegerError::new(
+            #core::IntegerValue::from(value),
+        )
+        .with_upper_bound(#core::IntegerValue::from(upper))
     }
 }
 
