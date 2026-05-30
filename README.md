@@ -6,7 +6,7 @@
 
 ```toml
 [dependencies]
-vouched = "0.1"
+vouched = "0.2"
 ```
 
 ## Quick start
