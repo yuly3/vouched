@@ -1,0 +1,5 @@
+error: unknown impl option. Supported: try_from(...)
+ --> tests/ui/vouched/impls_unknown_option.rs:4:32
+  |
+4 | #[vouched(range(0..100), impls(unknown))]
+  |                                ^^^^^^^

@@ -1,0 +1,5 @@
+error: impls(try_from(i16)) is not allowed: conversion from i16 to i32 is infallible. Use `i32::from(i16)` before calling try_into() instead.
+ --> tests/ui/vouched/impls_try_from_infallible.rs:5:41
+  |
+5 | #[vouched(range(0..100), impls(try_from(i16)))]
+  |                                         ^^^

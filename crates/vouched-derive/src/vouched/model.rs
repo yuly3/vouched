@@ -1,8 +1,8 @@
 use syn::{Expr, Ident, Type, Visibility};
 
-/// Configuration for cast operations
+/// Configuration for additional generated trait implementations.
 #[derive(Clone, Default)]
-pub(super) struct CastConfig {
+pub(super) struct ImplConfig {
     pub(super) try_from_types: Vec<Type>,
 }
 
@@ -41,7 +41,7 @@ pub(super) enum Marker {
 #[derive(Clone)]
 pub(super) enum DeriveArg {
     Marker(Box<Marker>),
-    Cast(CastConfig),
+    Impl(ImplConfig),
     Error(ErrorConfig),
 }
 

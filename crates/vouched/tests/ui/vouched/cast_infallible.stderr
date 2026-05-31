@@ -1,5 +1,0 @@
-error: cast(try_from(i16)) is not allowed: conversion from i16 to i32 is infallible. Use `i32::from(i16)` before calling try_into() instead.
- --> tests/ui/vouched/cast_infallible.rs:5:40
-  |
-5 | #[vouched(range(0..100), cast(try_from(i16)))]
-  |                                        ^^^

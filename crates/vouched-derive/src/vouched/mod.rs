@@ -3,7 +3,7 @@
 //! Responsibilities are split by phase to keep feature additions local:
 //! - `parse`: parse `#[vouched(...)]` arguments into domain model.
 //! - `analyze`: inspect derive target and infer required error kinds.
-//! - `cast`: validate `cast(try_from(...))` rules for integer conversions.
+//! - `impls`: validate `impls(try_from(...))` rules for integer conversions.
 //! - `codegen`: generate validation checks and unified error enum impls.
 //!
 //! Marker extension workflow:
@@ -19,22 +19,23 @@ use quote::quote;
 use syn::{DeriveInput, Generics, Ident, Type, Visibility};
 
 mod analyze;
-mod cast;
 mod codegen;
+mod impls;
 mod model;
 mod parse;
+mod types;
 
 use analyze::{error_kinds_for_markers, extract_inner_ty};
-use cast::{
-    SUPPORTED_RANGE_TYPES, is_supported_float_type, is_supported_int_type, is_supported_range_type,
-    validate_cast_config,
-};
+use impls::validate_try_from_impls;
 use model::ErrorKind;
 use parse::parse_vouched_args;
+use types::{
+    SUPPORTED_RANGE_TYPES, is_supported_float_type, is_supported_int_type, is_supported_range_type,
+};
 
 struct DerivePlan {
     markers: Vec<model::Marker>,
-    validated_cast_types: Vec<Type>,
+    try_from_impl_sources: Vec<Type>,
     inner_ty: Type,
     error_kinds: Vec<ErrorKind>,
     error_ident: Ident,
@@ -52,21 +53,19 @@ pub fn derive_vouched(input: &DeriveInput) -> TokenStream {
 }
 
 fn build_plan(input: &DeriveInput) -> syn::Result<DerivePlan> {
-    let (markers, cast_config, configured_error_config) = parse_vouched_args(&input.attrs)?;
+    let (markers, impl_config, configured_error_config) = parse_vouched_args(&input.attrs)?;
     let inner_ty = extract_inner_ty(input)?;
     validate_range_markers(&markers, &inner_ty)?;
     let range_error_kind = range_error_kind_for_type(&inner_ty);
 
-    // Validate cast configuration
-    let validated_cast_types = if let Some(config) = cast_config.as_ref() {
-        validate_cast_config(config, &inner_ty)?
+    let try_from_impl_sources = if let Some(config) = impl_config.as_ref() {
+        validate_try_from_impls(config, &inner_ty)?
     } else {
         Vec::new()
     };
 
-    // If cast is used, OutOfRange error is needed for cast failures
     let mut error_kinds = error_kinds_for_markers(&markers, range_error_kind);
-    if !validated_cast_types.is_empty() && !error_kinds.contains(&ErrorKind::OutOfRangeInteger) {
+    if !try_from_impl_sources.is_empty() && !error_kinds.contains(&ErrorKind::OutOfRangeInteger) {
         error_kinds.push(ErrorKind::OutOfRangeInteger);
     }
 
@@ -81,7 +80,7 @@ fn build_plan(input: &DeriveInput) -> syn::Result<DerivePlan> {
 
     Ok(DerivePlan {
         markers,
-        validated_cast_types,
+        try_from_impl_sources,
         inner_ty,
         error_kinds,
         error_ident,
@@ -182,8 +181,7 @@ fn expand_derive_with_generics(
         .map(|marker| marker.check_tokens(&plan.inner_ty, &plan.error_ident, core))
         .collect::<Vec<_>>();
 
-    // Generate additional TryFrom impls for cast types
-    let cast_try_from_impls = plan.validated_cast_types.iter().map(|src_ty| {
+    let extra_try_from_impls = plan.try_from_impl_sources.iter().map(|src_ty| {
         let inner_ty = &plan.inner_ty;
         let error_ident = &plan.error_ident;
         quote! {
@@ -252,6 +250,6 @@ fn expand_derive_with_generics(
             }
         }
 
-        #(#cast_try_from_impls)*
+        #(#extra_try_from_impls)*
     }
 }

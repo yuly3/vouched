@@ -3,8 +3,8 @@ use quote::quote;
 use syn::{Ident, LitChar, Type};
 
 use crate::vouched::{
-    cast::is_supported_float_type,
     model::{CharPattern, Marker, RangeBound},
+    types::is_supported_float_type,
 };
 
 impl CharPattern {

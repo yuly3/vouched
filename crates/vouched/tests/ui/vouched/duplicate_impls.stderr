@@ -1,0 +1,11 @@
+error: impls(...) can only be specified once
+ --> tests/ui/vouched/duplicate_impls.rs:4:1
+  |
+4 | #[vouched(impls(try_from(i64)), impls(try_from(u32)))]
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: try_from(...) can only be specified once in impls(...)
+ --> tests/ui/vouched/duplicate_impls.rs:8:44
+  |
+8 | #[vouched(range(0..), impls(try_from(i64), try_from(u32)))]
+  |                                            ^^^^^^^^

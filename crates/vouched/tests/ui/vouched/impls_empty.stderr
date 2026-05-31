@@ -1,0 +1,5 @@
+error: impls(...) requires at least one option. Supported: try_from(...)
+ --> tests/ui/vouched/impls_empty.rs:4:17
+  |
+4 | #[vouched(impls())]
+  |                 ^

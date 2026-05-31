@@ -1,5 +1,0 @@
-error: unsupported type in cast(try_from(...)). Supported types: i8, i16, i32, i64, i128, u8, u16, u32, u64, u128
- --> tests/ui/vouched/cast_unsupported_type.rs:5:40
-  |
-5 | #[vouched(range(0..100), cast(try_from(f64)))]
-  |                                        ^^^

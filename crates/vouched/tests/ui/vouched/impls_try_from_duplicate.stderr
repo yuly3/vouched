@@ -1,0 +1,5 @@
+error: duplicate source type in impls(try_from(...)): i64
+ --> tests/ui/vouched/impls_try_from_duplicate.rs:4:46
+  |
+4 | #[vouched(range(0..100), impls(try_from(i64, i64)))]
+  |                                              ^^^

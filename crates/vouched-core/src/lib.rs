@@ -7,7 +7,7 @@
 //!
 //! - [`TooShortError`] and [`TooLongError`] for `len(...)` failures.
 //! - [`InvalidCharError`] for `chars(...)` failures.
-//! - [`OutOfRangeIntegerError`] and [`IntegerValue`] for integer `range(...)` and `cast(try_from(...))` failures.
+//! - [`OutOfRangeIntegerError`] and [`IntegerValue`] for integer `range(...)` and `impls(try_from(...))` failures.
 //! - [`OutOfRangeFloatError`] and [`FloatValue`] for float `range(...)` failures.
 //! - [`VouchedError`], implemented by generated error enums.
 //! - [`Error`], an allocation-backed erased wrapper available with `alloc`.

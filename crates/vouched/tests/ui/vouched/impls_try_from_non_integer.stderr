@@ -1,0 +1,5 @@
+error: impls(try_from(...)) is only supported for integer inner types: i8, i16, i32, i64, i128, u8, u16, u32, u64, u128
+ --> tests/ui/vouched/impls_try_from_non_integer.rs:6:19
+  |
+6 | struct NotInteger(String);
+  |                   ^^^^^^

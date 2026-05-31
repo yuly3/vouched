@@ -36,7 +36,7 @@
 //! For a type named `Slug`, `#[derive(Vouched)]` generates:
 //!
 //! - `impl TryFrom<Inner> for Slug`, where `Inner` is the tuple field type.
-//! - additional fallible integer `TryFrom` implementations requested by `cast(try_from(...))`.
+//! - additional fallible integer `TryFrom` implementations requested by `impls(try_from(...))`.
 //! - a generated error enum named `SlugVouchedError` by default.
 //! - `Display`, `core::error::Error`, and [`VouchedError`] for that error enum.
 //!
@@ -61,10 +61,10 @@
 //! | `len(range)` | validates string length by Unicode scalar value count |
 //! | `chars(...)` | validates allowed characters from literals and inclusive char ranges |
 //! | `range(range)` | validates numeric bounds for supported fixed-width integers, `f32`, and `f64` |
-//! | `cast(try_from(...))` | adds extra fallible integer `TryFrom` implementations before validation |
 //!
-//! `len(...)`, `chars(...)`, `range(...)`, and `cast(...)` can each be specified at most once.
+//! `len(...)`, `chars(...)`, and `range(...)` can each be specified at most once.
 //! To combine character sets, put all sources in one marker: `chars('a'..='z', '0'..='9', '_')`.
+//! `impls(try_from(...))` can also be specified once to add extra fallible integer `TryFrom` implementations before validation.
 //!
 //! `len(...)` and `chars(...)` use `AsRef<str>` and inspect untrimmed Unicode scalar values. Length is not measured in bytes.
 //!

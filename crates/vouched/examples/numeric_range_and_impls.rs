@@ -1,7 +1,7 @@
 use vouched::{FloatRangeViolation, IntegerValue, Vouched, VouchedError};
 
 #[derive(Debug, PartialEq, Eq, Vouched)]
-#[vouched(range(0..=100), cast(try_from(i64, u32)))]
+#[vouched(range(0..=100), impls(try_from(i64, u32)))]
 struct Score(i32);
 
 impl Score {
