@@ -236,7 +236,7 @@ dependencies = [
 
 [[package]]
 name = "vouched"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde_json",
  "trybuild",
@@ -247,14 +247,14 @@ dependencies = [
 
 [[package]]
 name = "vouched-core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "valuable",
 ]
 
 [[package]]
 name = "vouched-derive"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
