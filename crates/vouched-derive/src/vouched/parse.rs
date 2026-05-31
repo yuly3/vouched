@@ -1,10 +1,12 @@
 use syn::{
-    Attribute, Expr, ExprLit, ExprRange, Ident, Lit, Token, Visibility,
+    Attribute, Expr, ExprLit, ExprRange, Ident, Lit, Token, Type, Visibility,
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
 };
 
-use super::model::{CharPattern, DeriveArg, ErrorConfig, ImplConfig, Marker, RangeBound};
+use super::model::{
+    CharPattern, DeriveArg, ErrorConfig, ImplConfig, Marker, RangeBound, TryFromSource,
+};
 
 impl Parse for ImplConfig {
     fn parse(input: ParseStream) -> syn::Result<Self> {
@@ -24,8 +26,11 @@ impl Parse for ImplConfig {
                     saw_try_from = true;
                     let content;
                     syn::parenthesized!(content in input);
-                    let types = Punctuated::<syn::Type, Token![,]>::parse_terminated(&content)?;
-                    config.try_from_types = types.into_iter().collect();
+                    let types = Punctuated::<Type, Token![,]>::parse_terminated(&content)?;
+                    config.try_from_sources = types
+                        .into_iter()
+                        .map(parse_try_from_source)
+                        .collect::<syn::Result<Vec<_>>>()?;
                 }
                 _ => {
                     return Err(syn::Error::new_spanned(
@@ -48,6 +53,39 @@ impl Parse for ImplConfig {
         }
 
         Ok(config)
+    }
+}
+
+fn parse_try_from_source(ty: Type) -> syn::Result<TryFromSource> {
+    if is_borrowed_str_source(&ty) {
+        return Ok(TryFromSource::BorrowedStr(ty));
+    }
+
+    if matches!(ty, Type::Reference(_)) {
+        return Err(syn::Error::new_spanned(
+            ty,
+            "unsupported reference type in impls(try_from(...)). Supported reference source: &str",
+        ));
+    }
+
+    Ok(TryFromSource::Integer(ty))
+}
+
+fn is_borrowed_str_source(ty: &Type) -> bool {
+    match ty {
+        Type::Reference(reference) => {
+            reference.lifetime.is_none()
+                && reference.mutability.is_none()
+                && is_bare_str_type(reference.elem.as_ref())
+        }
+        _ => false,
+    }
+}
+
+fn is_bare_str_type(ty: &Type) -> bool {
+    match ty {
+        Type::Path(type_path) if type_path.qself.is_none() => type_path.path.is_ident("str"),
+        _ => false,
     }
 }
 

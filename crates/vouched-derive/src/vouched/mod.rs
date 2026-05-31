@@ -3,7 +3,7 @@
 //! Responsibilities are split by phase to keep feature additions local:
 //! - `parse`: parse `#[vouched(...)]` arguments into domain model.
 //! - `analyze`: inspect derive target and infer required error kinds.
-//! - `impls`: validate `impls(try_from(...))` rules for integer conversions.
+//! - `impls`: validate `impls(try_from(...))` rules.
 //! - `codegen`: generate validation checks and unified error enum impls.
 //!
 //! Marker extension workflow:
@@ -26,8 +26,8 @@ mod parse;
 mod types;
 
 use analyze::{error_kinds_for_markers, extract_inner_ty};
-use impls::validate_try_from_impls;
-use model::ErrorKind;
+use impls::{validate_borrowed_str_impls, validate_try_from_impls};
+use model::{ErrorKind, TryFromSource};
 use parse::parse_vouched_args;
 use types::{
     SUPPORTED_RANGE_TYPES, is_supported_float_type, is_supported_int_type, is_supported_range_type,
@@ -35,7 +35,7 @@ use types::{
 
 struct DerivePlan {
     markers: Vec<model::Marker>,
-    try_from_impl_sources: Vec<Type>,
+    try_from_impl_sources: Vec<TryFromSource>,
     inner_ty: Type,
     error_kinds: Vec<ErrorKind>,
     error_ident: Ident,
@@ -59,13 +59,19 @@ fn build_plan(input: &DeriveInput) -> syn::Result<DerivePlan> {
     let range_error_kind = range_error_kind_for_type(&inner_ty);
 
     let try_from_impl_sources = if let Some(config) = impl_config.as_ref() {
-        validate_try_from_impls(config, &inner_ty)?
+        let sources = validate_try_from_impls(config, &inner_ty)?;
+        validate_borrowed_str_impls(&sources, &markers)?;
+        sources
     } else {
         Vec::new()
     };
 
     let mut error_kinds = error_kinds_for_markers(&markers, range_error_kind);
-    if !try_from_impl_sources.is_empty() && !error_kinds.contains(&ErrorKind::OutOfRangeInteger) {
+    if try_from_impl_sources
+        .iter()
+        .any(|source| matches!(source, TryFromSource::Integer(_)))
+        && !error_kinds.contains(&ErrorKind::OutOfRangeInteger)
+    {
         error_kinds.push(ErrorKind::OutOfRangeInteger);
     }
 
@@ -181,10 +187,13 @@ fn expand_derive_with_generics(
         .map(|marker| marker.check_tokens(&plan.inner_ty, &plan.error_ident, core))
         .collect::<Vec<_>>();
 
-    let extra_try_from_impls = plan.try_from_impl_sources.iter().map(|src_ty| {
+    let extra_integer_try_from_impls = plan.try_from_impl_sources.iter().filter_map(|source| {
+        let TryFromSource::Integer(src_ty) = source else {
+            return None;
+        };
         let inner_ty = &plan.inner_ty;
         let error_ident = &plan.error_ident;
-        quote! {
+        Some(quote! {
             impl #impl_generics ::core::convert::TryFrom<#src_ty> for #name #ty_generics #where_clause {
                 type Error = #error_ident;
 
@@ -206,8 +215,45 @@ fn expand_derive_with_generics(
                     ::core::result::Result::Ok(Self(value))
                 }
             }
-        }
+        })
     });
+
+    let borrowed_str_try_from_impl = if plan
+        .try_from_impl_sources
+        .iter()
+        .any(|source| matches!(source, TryFromSource::BorrowedStr(_)))
+    {
+        let inner_ty = &plan.inner_ty;
+        let error_ident = &plan.error_ident;
+        let mut str_impl_generics = generics.clone();
+        str_impl_generics
+            .make_where_clause()
+            .predicates
+            .push(syn::parse_quote! {
+                #inner_ty: #core::VouchedStrInner
+            });
+        let (str_impl_generics, _, str_where_clause) = str_impl_generics.split_for_impl();
+        let str_checks = ordered_markers
+            .iter()
+            .map(|marker| marker.check_str_tokens(&plan.error_ident, core))
+            .collect::<Vec<_>>();
+
+        quote! {
+            impl #str_impl_generics ::core::convert::TryFrom<&str> for #name #ty_generics #str_where_clause {
+                type Error = #error_ident;
+
+                fn try_from(s: &str) -> ::core::result::Result<Self, Self::Error> {
+                    #(
+                        #str_checks;
+                    )*
+                    let value: #inner_ty = <#inner_ty as #core::VouchedStrInner>::from_validated_str(s);
+                    ::core::result::Result::Ok(Self(value))
+                }
+            }
+        }
+    } else {
+        TokenStream2::new()
+    };
 
     let inner_ty = &plan.inner_ty;
     let error_ident = &plan.error_ident;
@@ -250,6 +296,7 @@ fn expand_derive_with_generics(
             }
         }
 
-        #(#extra_try_from_impls)*
+        #(#extra_integer_try_from_impls)*
+        #borrowed_str_try_from_impl
     }
 }

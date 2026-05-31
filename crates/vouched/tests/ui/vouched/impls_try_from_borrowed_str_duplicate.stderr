@@ -1,0 +1,5 @@
+error: duplicate source type in impls(try_from(...)): &str
+ --> tests/ui/vouched/impls_try_from_borrowed_str_duplicate.rs:4:44
+  |
+4 | #[vouched(len(1..=8), impls(try_from(&str, &str)))]
+  |                                            ^^^^

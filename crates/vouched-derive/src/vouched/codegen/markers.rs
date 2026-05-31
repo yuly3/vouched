@@ -38,9 +38,43 @@ impl Marker {
             Self::Chars { patterns } => emit_chars_check(patterns, error_ident, core),
         }
     }
+
+    pub(crate) fn check_str_tokens(
+        &self,
+        error_ident: &Ident,
+        core: &TokenStream2,
+    ) -> TokenStream2 {
+        match self {
+            Self::Len { lower, upper } => {
+                emit_len_check_from_str(&quote! { s }, lower, upper, error_ident, core)
+            }
+            Self::Range { .. } => {
+                unreachable!("range markers are rejected for impls(try_from(&str))")
+            }
+            Self::Chars { patterns } => {
+                emit_chars_check_from_str(&quote! { s }, patterns, error_ident, core)
+            }
+        }
+    }
 }
 
 fn emit_len_check(
+    lower: &RangeBound,
+    upper: &RangeBound,
+    error_ident: &Ident,
+    core: &TokenStream2,
+) -> TokenStream2 {
+    emit_len_check_from_str(
+        &quote! { ::core::convert::AsRef::<str>::as_ref(&value) },
+        lower,
+        upper,
+        error_ident,
+        core,
+    )
+}
+
+fn emit_len_check_from_str(
+    str_expr: &TokenStream2,
     lower: &RangeBound,
     upper: &RangeBound,
     error_ident: &Ident,
@@ -98,8 +132,8 @@ fn emit_len_check(
 
     quote! {
         {
-            let s: &str = ::core::convert::AsRef::<str>::as_ref(&value);
-            let len = s.chars().count();
+            let vouched_str: &str = #str_expr;
+            let len = vouched_str.chars().count();
             #lower_check
             #upper_check
         }
@@ -298,6 +332,20 @@ fn emit_chars_check(
     error_ident: &Ident,
     core: &TokenStream2,
 ) -> TokenStream2 {
+    emit_chars_check_from_str(
+        &quote! { ::core::convert::AsRef::<str>::as_ref(&value) },
+        patterns,
+        error_ident,
+        core,
+    )
+}
+
+fn emit_chars_check_from_str(
+    str_expr: &TokenStream2,
+    patterns: &[CharPattern],
+    error_ident: &Ident,
+    core: &TokenStream2,
+) -> TokenStream2 {
     let match_patterns = patterns
         .iter()
         .map(CharPattern::to_match_tokens)
@@ -305,8 +353,8 @@ fn emit_chars_check(
 
     quote! {
         {
-            let s: &str = ::core::convert::AsRef::<str>::as_ref(&value);
-            for (index, ch) in s.chars().enumerate() {
+            let vouched_str: &str = #str_expr;
+            for (index, ch) in vouched_str.chars().enumerate() {
                 if !matches!(ch, #(#match_patterns)|*) {
                     return ::core::result::Result::Err(
                         #error_ident::InvalidChar(#core::InvalidCharError::new(index, ch)),

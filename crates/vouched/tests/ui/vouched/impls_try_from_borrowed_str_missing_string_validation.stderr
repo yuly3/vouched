@@ -1,0 +1,5 @@
+error: impls(try_from(&str)) requires len(...) or chars(...)
+ --> tests/ui/vouched/impls_try_from_borrowed_str_missing_string_validation.rs:4:26
+  |
+4 | #[vouched(impls(try_from(&str)))]
+  |                          ^^^^

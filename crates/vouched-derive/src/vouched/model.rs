@@ -3,7 +3,13 @@ use syn::{Expr, Ident, Type, Visibility};
 /// Configuration for additional generated trait implementations.
 #[derive(Clone, Default)]
 pub(super) struct ImplConfig {
-    pub(super) try_from_types: Vec<Type>,
+    pub(super) try_from_sources: Vec<TryFromSource>,
+}
+
+#[derive(Clone)]
+pub(super) enum TryFromSource {
+    Integer(Type),
+    BorrowedStr(Type),
 }
 
 /// Range boundary specification

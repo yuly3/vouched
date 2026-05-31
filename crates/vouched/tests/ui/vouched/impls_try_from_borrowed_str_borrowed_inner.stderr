@@ -1,0 +1,5 @@
+error: impls(try_from(&str)) is not supported for borrowed inner types; use String, Box<str>, Rc<str>, or Arc<str>
+ --> tests/ui/vouched/impls_try_from_borrowed_str_borrowed_inner.rs:5:26
+  |
+5 | struct BorrowedInner<'a>(&'a str);
+  |                          ^^^^^^^

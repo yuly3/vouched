@@ -1,7 +1,7 @@
 use vouched::{Error, Vouched};
 
 #[derive(Debug, PartialEq, Eq, Vouched)]
-#[vouched(len(1..), chars('a'..='z', '0'..='9', '_'))]
+#[vouched(len(1..), chars('a'..='z', '0'..='9', '_'), impls(try_from(&str)))]
 struct Username(String);
 
 impl Username {
@@ -11,7 +11,7 @@ impl Username {
 }
 
 #[derive(Debug, PartialEq, Eq, Vouched)]
-#[vouched(len(1..=32))]
+#[vouched(len(1..=32), impls(try_from(&str)))]
 struct DisplayName(String);
 
 impl DisplayName {
@@ -29,8 +29,8 @@ struct AccountProfile {
 impl AccountProfile {
     fn try_new(username: &str, display_name: &str) -> Result<Self, Error> {
         Ok(Self {
-            username: Username::try_from(username.to_owned())?,
-            display_name: DisplayName::try_from(display_name.to_owned())?,
+            username: Username::try_from(username)?,
+            display_name: DisplayName::try_from(display_name)?,
         })
     }
     fn username(&self) -> &Username {
