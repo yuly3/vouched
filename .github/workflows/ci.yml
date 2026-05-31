@@ -50,7 +50,7 @@ jobs:
       - name: Test examples
         run: |
           cargo run -p vouched --example string_constraints
-          cargo run -p vouched --example numeric_range_and_cast
+          cargo run -p vouched --example numeric_range_and_impls
           cargo run -p vouched --example error
       - name: Test rustdoc examples
         run: cargo test --doc --workspace --all-features

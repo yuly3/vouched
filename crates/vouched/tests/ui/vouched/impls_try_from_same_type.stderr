@@ -1,0 +1,5 @@
+error: impls(try_from(i32)) is redundant: source type is the same as inner type
+ --> tests/ui/vouched/impls_try_from_same_type.rs:5:41
+  |
+5 | #[vouched(range(0..100), impls(try_from(i32)))]
+  |                                         ^^^

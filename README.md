@@ -40,9 +40,8 @@ cargo run -p vouched --example <name>
 - `len(range)`: validates string length by Unicode scalar value count. Leading and trailing whitespace count.
 - `range(range)`: validates numeric bounds for `i8`, `i16`, `i32`, `i64`, `i128`, `u8`, `u16`, `u32`, `u64`, `u128`, `f32`, and `f64`.
 - `chars(...)`: validates allowed characters by string literal, char literal, or inclusive char range.
-- `cast(try_from(...))`: adds extra fallible integer `TryFrom` implementations before validation.
 
-`len(...)`, `range(...)`, `chars(...)`, and `cast(...)` can each be specified at most once.
+`len(...)`, `range(...)`, and `chars(...)` can each be specified at most once.
 To combine character sets, put all sources in one marker, such as `chars('a'..='z', '0'..='9', '_')`.
 
 `range(...)` type-checks the bound expressions against the inner numeric type and generates runtime validation.
@@ -55,6 +54,7 @@ Validation returns the first error encountered. When multiple markers or multipl
 ## Generated API
 
 `#[derive(Vouched)]` generates `TryFrom` impls, a `<TypeName>VouchedError` enum, `Display`, `core::error::Error`, and `vouched::VouchedError`.
+Use `impls(try_from(...))` to request additional fallible integer `TryFrom` implementations before validation.
 The default error enum visibility matches the derived type visibility.
 Use `#[vouched(error(name = CustomErrorName, vis = pub(crate)), ...)]` to override the generated error enum name or visibility.
 Rust visibility rules still apply: if a public derived type exposes a less-visible error type through `TryFrom::Error`, rustc rejects the generated impl.
@@ -74,7 +74,7 @@ Rust visibility rules still apply: if a public derived type exposes a less-visib
 
 - Only tuple structs with exactly one field are supported.
 - The default generated error enum name is `<TypeName>VouchedError`; use `error(name = CustomErrorName)` to avoid local name collisions.
-- `cast(try_from(...))` supports only `i8`, `i16`, `i32`, `i64`, `i128`, `u8`, `u16`, `u32`, `u64`, and `u128`.
+- `impls(try_from(...))` supports only fallible fixed-width integer conversions among `i8`, `i16`, `i32`, `i64`, `i128`, `u8`, `u16`, `u32`, `u64`, and `u128`.
 - `range(...)` supports fixed-width integers plus `f32` and `f64`; `isize`, `usize`, and custom ordered types are not supported.
 - `len(...)` works on `AsRef<str>` values and measures untrimmed Unicode scalar values, not bytes.
 - `chars(...)` works on `AsRef<str>` values and validates untrimmed Unicode scalar values.

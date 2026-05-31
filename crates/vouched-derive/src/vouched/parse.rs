@@ -4,16 +4,24 @@ use syn::{
     punctuated::Punctuated,
 };
 
-use super::model::{CastConfig, CharPattern, DeriveArg, ErrorConfig, Marker, RangeBound};
+use super::model::{CharPattern, DeriveArg, ErrorConfig, ImplConfig, Marker, RangeBound};
 
-impl Parse for CastConfig {
+impl Parse for ImplConfig {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let mut config = Self::default();
+        let mut saw_try_from = false;
 
         while !input.is_empty() {
             let ident: Ident = input.parse()?;
             match ident.to_string().as_str() {
                 "try_from" => {
+                    if saw_try_from {
+                        return Err(syn::Error::new_spanned(
+                            ident,
+                            "try_from(...) can only be specified once in impls(...)",
+                        ));
+                    }
+                    saw_try_from = true;
                     let content;
                     syn::parenthesized!(content in input);
                     let types = Punctuated::<syn::Type, Token![,]>::parse_terminated(&content)?;
@@ -22,7 +30,7 @@ impl Parse for CastConfig {
                 _ => {
                     return Err(syn::Error::new_spanned(
                         ident,
-                        "unknown cast option. Supported: try_from(...)",
+                        "unknown impl option. Supported: try_from(...)",
                     ));
                 }
             }
@@ -30,6 +38,13 @@ impl Parse for CastConfig {
             if input.peek(Token![,]) {
                 input.parse::<Token![,]>()?;
             }
+        }
+
+        if !saw_try_from {
+            return Err(syn::Error::new(
+                input.span(),
+                "impls(...) requires at least one option. Supported: try_from(...)",
+            ));
         }
 
         Ok(config)
@@ -341,12 +356,12 @@ fn parse_char_expr(expr: &Expr) -> syn::Result<char> {
 impl Parse for DeriveArg {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let ident: Ident = input.fork().parse()?;
-        if ident == "cast" {
-            input.parse::<Ident>()?; // consume "cast"
+        if ident == "impls" {
+            input.parse::<Ident>()?; // consume "impls"
             let content;
             syn::parenthesized!(content in input);
-            let config: CastConfig = content.parse()?;
-            Ok(Self::Cast(config))
+            let config: ImplConfig = content.parse()?;
+            Ok(Self::Impl(config))
         } else if ident == "error" {
             input.parse::<Ident>()?; // consume "error"
             if input.peek(Token![=]) {
@@ -369,26 +384,26 @@ impl Parse for DeriveArg {
 
 pub(super) fn parse_vouched_args(
     attrs: &[Attribute],
-) -> syn::Result<(Vec<Marker>, Option<CastConfig>, Option<ErrorConfig>)> {
-    let (markers, cast_config, error_config) = attrs
+) -> syn::Result<(Vec<Marker>, Option<ImplConfig>, Option<ErrorConfig>)> {
+    let (markers, impl_config, error_config) = attrs
         .iter()
         .filter(|a| a.path().is_ident("vouched"))
         .try_fold((Vec::new(), None, None), fold_vouched_args)?;
 
-    if markers.is_empty() && cast_config.is_none() {
+    if markers.is_empty() && impl_config.is_none() {
         return Err(syn::Error::new(
             proc_macro2::Span::call_site(),
-            "Vouched requires at least one validation marker (len/range/chars) or cast(...) in #[vouched(...)]",
+            "Vouched requires at least one validation marker (len/range/chars) or impls(...) in #[vouched(...)]",
         ));
     }
 
-    Ok((markers, cast_config, error_config))
+    Ok((markers, impl_config, error_config))
 }
 
 fn fold_vouched_args(
-    mut acc: (Vec<Marker>, Option<CastConfig>, Option<ErrorConfig>),
+    mut acc: (Vec<Marker>, Option<ImplConfig>, Option<ErrorConfig>),
     attr: &Attribute,
-) -> syn::Result<(Vec<Marker>, Option<CastConfig>, Option<ErrorConfig>)> {
+) -> syn::Result<(Vec<Marker>, Option<ImplConfig>, Option<ErrorConfig>)> {
     let args = attr.parse_args_with(Punctuated::<DeriveArg, Token![,]>::parse_terminated)?;
 
     for arg in args {
@@ -397,11 +412,11 @@ fn fold_vouched_args(
                 reject_duplicate_marker(&acc.0, &marker, attr)?;
                 acc.0.push(*marker);
             }
-            DeriveArg::Cast(config) => {
+            DeriveArg::Impl(config) => {
                 if acc.1.is_some() {
                     return Err(syn::Error::new_spanned(
                         attr,
-                        "cast(...) can only be specified once",
+                        "impls(...) can only be specified once",
                     ));
                 }
                 acc.1 = Some(config);

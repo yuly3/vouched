@@ -88,7 +88,7 @@ enum IntegerValueRepr {
     Unsigned(u128),
 }
 
-/// Lossless integer value captured by generated integer range and cast errors.
+/// Lossless integer value captured by generated integer range and conversion errors.
 ///
 /// The representation is private so future integer-like values can be added
 /// without exposing the enum shape. Use the `as_*` methods to recover a

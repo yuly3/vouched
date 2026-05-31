@@ -96,7 +96,7 @@ fn question_operator_into_erased_error() {
 }
 
 #[test]
-fn downcast_too_long_contains_max() {
+fn erased_error_too_long_contains_max() {
     let too_long = parse_two("ok".to_owned(), "abcd".to_owned())
         .err()
         .and_then(|err| {
@@ -276,30 +276,30 @@ fn current_implementation_runs_chars_after_other_validations() {
 }
 
 // ============================================================================
-// Tests for cast(try_from(...)) - additional TryFrom impls for integer types
+// Tests for impls(try_from(...)) - additional TryFrom impls for integer types
 // ============================================================================
 
-/// Vouched with i32 inner type and cast(try_from(i64, u32))
+/// Vouched with i32 inner type and impls(try_from(i64, u32))
 #[derive(Vouched, Debug, Clone, PartialEq)]
-#[vouched(range(0..=100), cast(try_from(i64, u32)))]
-struct CastableRange(i32);
-impl CastableRange {
+#[vouched(range(0..=100), impls(try_from(i64, u32)))]
+struct TryFromRange(i32);
+impl TryFromRange {
     fn value(&self) -> i32 {
         self.0
     }
 }
 
 #[test]
-fn cast_try_from_i64_success() {
+fn impls_try_from_i64_success() {
     // i64 value within i32 range and within validation range
-    let r = CastableRange::try_from(50_i64);
+    let r = TryFromRange::try_from(50_i64);
     assert_eq!(r.as_ref().map(|s| s.value()), Ok(50));
 }
 
 #[test]
-fn cast_try_from_i64_overflow() {
+fn impls_try_from_i64_overflow() {
     // i64 value outside i32 range -> OutOfRange error
-    let out_of_range = out_of_range_parts(CastableRange::try_from(i64::MAX));
+    let out_of_range = out_of_range_parts(TryFromRange::try_from(i64::MAX));
     assert_eq!(
         out_of_range.map(|(actual, lower_bound, upper_bound)| (
             actual.as_i64(),
@@ -311,9 +311,9 @@ fn cast_try_from_i64_overflow() {
 }
 
 #[test]
-fn cast_try_from_i64_validation_fail() {
+fn impls_try_from_i64_validation_fail() {
     // i64 value within i32 range but outside validation range
-    let out_of_range = out_of_range_parts(CastableRange::try_from(200_i64));
+    let out_of_range = out_of_range_parts(TryFromRange::try_from(200_i64));
     assert_eq!(
         out_of_range.map(|(actual, lower_bound, upper_bound)| (
             actual.as_i64(),
@@ -325,29 +325,29 @@ fn cast_try_from_i64_validation_fail() {
 }
 
 #[test]
-fn cast_try_from_i64_negative() {
+fn impls_try_from_i64_negative() {
     // Negative i64 within i32 range but outside validation range (0..=100)
-    let r = CastableRange::try_from(-50_i64);
+    let r = TryFromRange::try_from(-50_i64);
     assert!(is_out_of_range(r));
 }
 
 #[test]
-fn cast_try_from_u32_success() {
+fn impls_try_from_u32_success() {
     // u32 value within i32 range and validation range
-    let r = CastableRange::try_from(75_u32);
+    let r = TryFromRange::try_from(75_u32);
     assert_eq!(r.as_ref().map(|s| s.value()), Ok(75));
 }
 
 #[test]
-fn cast_try_from_u32_overflow() {
+fn impls_try_from_u32_overflow() {
     // u32 value outside i32 range (large u32 > i32::MAX) -> OutOfRange error
-    let r = CastableRange::try_from(u32::MAX);
+    let r = TryFromRange::try_from(u32::MAX);
     assert!(is_out_of_range(r));
 }
 
-/// Vouched with u8 inner type and cast from larger types
+/// Vouched with u8 inner type and extra TryFrom impls from larger types
 #[derive(Vouched, Debug, Clone, PartialEq)]
-#[vouched(range(1..=12), cast(try_from(i32, u32, i64, u64, i128, u128)))]
+#[vouched(range(1..=12), impls(try_from(i32, u32, i64, u64, i128, u128)))]
 struct Month(u8);
 impl Month {
     fn value(&self) -> u8 {
@@ -383,7 +383,7 @@ fn month_from_i32_validation_fail() {
 }
 
 #[test]
-fn cast_try_from_i128_and_u128_are_supported() {
+fn impls_try_from_i128_and_u128_are_supported() {
     let r = Month::try_from(12_i128);
     assert_eq!(r.as_ref().map(|s| s.value()), Ok(12));
 
@@ -399,50 +399,50 @@ fn cast_try_from_i128_and_u128_are_supported() {
     assert_eq!(actual.and_then(IntegerValue::as_i128), None);
 }
 
-/// Vouched without range marker but with cast - OutOfRange is still generated for cast failures
+/// Vouched with extra TryFrom impls - OutOfRange is generated for conversion failures
 #[derive(Vouched, Debug, Clone, PartialEq)]
-#[vouched(range(0..), cast(try_from(i64)))]
+#[vouched(range(0..), impls(try_from(i64)))]
 struct IdWithRange(i32);
 
 #[test]
-fn id_with_range_cast_overflow_generates_out_of_range() {
+fn id_with_range_try_from_impl_overflow_generates_out_of_range() {
     // This test verifies that OutOfRange error variant is generated
-    // because cast needs it for overflow errors
+    // because extra TryFrom impls need it for overflow errors
     let r = IdWithRange::try_from(i64::MAX);
-    // The error should be OutOfRange for the cast failure
+    // The error should be OutOfRange for the conversion failure
     assert!(is_out_of_range(r));
 }
 
 // ============================================================================
-// Tests for cast-only Vouched (no validation markers)
+// Tests for impls-only Vouched (no validation markers)
 // ============================================================================
 
-/// Vouched with only cast, no validation markers
+/// Vouched with only extra TryFrom impls, no validation markers
 #[derive(Vouched, Debug, Clone, PartialEq)]
-#[vouched(cast(try_from(i64)))]
-struct CastOnlyId(i32);
-impl CastOnlyId {
+#[vouched(impls(try_from(i64)))]
+struct ImplOnlyId(i32);
+impl ImplOnlyId {
     fn value(&self) -> i32 {
         self.0
     }
 }
 
 #[test]
-fn cast_only_success() {
-    let id = CastOnlyId::try_from(100_i64);
+fn impls_only_success() {
+    let id = ImplOnlyId::try_from(100_i64);
     assert_eq!(id.as_ref().map(|s| s.value()), Ok(100));
 }
 
 #[test]
-fn cast_only_overflow() {
-    let r = CastOnlyId::try_from(i64::MAX);
+fn impls_only_overflow() {
+    let r = ImplOnlyId::try_from(i64::MAX);
     assert!(is_out_of_range(r));
 }
 
 #[test]
-fn cast_only_inner_try_from_still_works() {
+fn impls_only_inner_try_from_still_works() {
     // TryFrom<i32> (inner type) should still be generated
-    let id = CastOnlyId::try_from(50_i32);
+    let id = ImplOnlyId::try_from(50_i32);
     assert_eq!(id.as_ref().map(|s| s.value()), Ok(50));
 }
 

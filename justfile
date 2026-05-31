@@ -30,7 +30,7 @@ test-valuable-feature:
 
 test-examples:
     cargo run -p vouched --example string_constraints
-    cargo run -p vouched --example numeric_range_and_cast
+    cargo run -p vouched --example numeric_range_and_impls
     cargo run -p vouched --example error
 
 check:

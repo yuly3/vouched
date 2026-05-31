@@ -1,5 +1,5 @@
-error: cast(try_from(...)) requires at least one type. Empty type list is not allowed.
- --> tests/ui/vouched/cast_empty_list.rs:4:10
+error: impls(try_from(...)) requires at least one type. Empty type list is not allowed.
+ --> tests/ui/vouched/impls_try_from_empty_list.rs:4:10
   |
 4 | #[derive(Vouched)]
   |          ^^^^^^^

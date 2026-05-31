@@ -1,4 +1,4 @@
-error: Vouched requires at least one validation marker (len/range/chars) or cast(...) in #[vouched(...)]
+error: Vouched requires at least one validation marker (len/range/chars) or impls(...) in #[vouched(...)]
  --> tests/ui/vouched/missing_validations.rs:3:10
   |
 3 | #[derive(Vouched)]
