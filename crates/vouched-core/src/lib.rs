@@ -18,5 +18,8 @@
 extern crate alloc;
 
 mod error;
+mod str_inner;
 
 pub use error::*;
+#[doc(hidden)]
+pub use str_inner::VouchedStrInner;

@@ -1,0 +1,5 @@
+error: impls(try_from(&str)) cannot be mixed with integer source types
+ --> tests/ui/vouched/impls_try_from_borrowed_str_mixed_sources.rs:4:44
+  |
+4 | #[vouched(len(1..=8), impls(try_from(&str, i64)))]
+  |                                            ^^^

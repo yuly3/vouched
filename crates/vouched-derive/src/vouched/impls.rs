@@ -1,7 +1,7 @@
 use syn::Type;
 
 use super::{
-    model::ImplConfig,
+    model::{ImplConfig, Marker, TryFromSource},
     types::{SUPPORTED_INT_TYPES, type_to_string},
 };
 
@@ -53,12 +53,55 @@ fn is_fallible_int_conversion(src: &str, dst: &str) -> Option<bool> {
 pub(super) fn validate_try_from_impls(
     config: &ImplConfig,
     inner_ty: &Type,
-) -> syn::Result<Vec<Type>> {
-    if config.try_from_types.is_empty() {
+) -> syn::Result<Vec<TryFromSource>> {
+    if config.try_from_sources.is_empty() {
         return Err(syn::Error::new(
             proc_macro2::Span::call_site(),
             "impls(try_from(...)) requires at least one type. Empty type list is not allowed.",
         ));
+    }
+
+    let borrowed_str_sources = config
+        .try_from_sources
+        .iter()
+        .filter_map(|source| match source {
+            TryFromSource::BorrowedStr(ty) => Some(ty),
+            TryFromSource::Integer(_) => None,
+        })
+        .collect::<Vec<_>>();
+
+    if let Some(first_borrowed_str) = borrowed_str_sources.first() {
+        if matches!(inner_ty, Type::Reference(_)) {
+            return Err(syn::Error::new_spanned(
+                inner_ty,
+                "impls(try_from(&str)) is not supported for borrowed inner types; use String, Box<str>, Rc<str>, or Arc<str>",
+            ));
+        }
+
+        if borrowed_str_sources.len() > 1 {
+            return Err(syn::Error::new_spanned(
+                borrowed_str_sources[1],
+                "duplicate source type in impls(try_from(...)): &str",
+            ));
+        }
+
+        if let Some(integer_source) = config
+            .try_from_sources
+            .iter()
+            .find_map(|source| match source {
+                TryFromSource::Integer(ty) => Some(ty),
+                TryFromSource::BorrowedStr(_) => None,
+            })
+        {
+            return Err(syn::Error::new_spanned(
+                integer_source,
+                "impls(try_from(&str)) cannot be mixed with integer source types",
+            ));
+        }
+
+        return Ok(vec![TryFromSource::BorrowedStr(
+            (*first_borrowed_str).clone(),
+        )]);
     }
 
     let inner_ty_str = type_to_string(inner_ty);
@@ -76,7 +119,10 @@ pub(super) fn validate_try_from_impls(
     let mut validated_types = Vec::new();
     let mut seen_sources = Vec::new();
 
-    for src_ty in &config.try_from_types {
+    for source in &config.try_from_sources {
+        let TryFromSource::Integer(src_ty) = source else {
+            unreachable!("borrowed string sources are handled before integer validation");
+        };
         let src_ty_str = type_to_string(src_ty);
 
         if !SUPPORTED_INT_TYPES.contains(&src_ty_str.as_str()) {
@@ -108,7 +154,7 @@ pub(super) fn validate_try_from_impls(
         match is_fallible_int_conversion(&src_ty_str, &inner_ty_str) {
             Some(true) => {
                 seen_sources.push(src_ty_str);
-                validated_types.push(src_ty.clone());
+                validated_types.push(TryFromSource::Integer(src_ty.clone()));
             }
             Some(false) => {
                 return Err(syn::Error::new_spanned(
@@ -128,4 +174,38 @@ pub(super) fn validate_try_from_impls(
     }
 
     Ok(validated_types)
+}
+
+pub(super) fn validate_borrowed_str_impls(
+    try_from_sources: &[TryFromSource],
+    markers: &[Marker],
+) -> syn::Result<()> {
+    let Some(source_ty) = try_from_sources.iter().find_map(|source| match source {
+        TryFromSource::BorrowedStr(ty) => Some(ty),
+        TryFromSource::Integer(_) => None,
+    }) else {
+        return Ok(());
+    };
+
+    if markers
+        .iter()
+        .any(|marker| matches!(marker, Marker::Range { .. }))
+    {
+        return Err(syn::Error::new_spanned(
+            source_ty,
+            "impls(try_from(&str)) supports string validations only: len(...) and/or chars(...)",
+        ));
+    }
+
+    if !markers
+        .iter()
+        .any(|marker| matches!(marker, Marker::Len { .. } | Marker::Chars { .. }))
+    {
+        return Err(syn::Error::new_spanned(
+            source_ty,
+            "impls(try_from(&str)) requires len(...) or chars(...)",
+        ));
+    }
+
+    Ok(())
 }

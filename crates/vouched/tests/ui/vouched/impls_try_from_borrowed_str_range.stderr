@@ -1,0 +1,5 @@
+error: impls(try_from(&str)) supports string validations only: len(...) and/or chars(...)
+ --> tests/ui/vouched/impls_try_from_borrowed_str_range.rs:4:40
+  |
+4 | #[vouched(range(1..=8), impls(try_from(&str)))]
+  |                                        ^^^^

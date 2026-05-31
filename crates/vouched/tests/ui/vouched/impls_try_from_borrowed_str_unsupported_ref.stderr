@@ -1,0 +1,5 @@
+error: unsupported reference type in impls(try_from(...)). Supported reference source: &str
+ --> tests/ui/vouched/impls_try_from_borrowed_str_unsupported_ref.rs:4:38
+  |
+4 | #[vouched(len(1..=8), impls(try_from(&u8)))]
+  |                                      ^^^

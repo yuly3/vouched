@@ -3,10 +3,12 @@
     reason = "derive-generated validation checks currently expand to unit expressions"
 )]
 
+use std::{rc::Rc, sync::Arc};
+
 use vouched::{Error, FloatRangeViolation, FloatValue, IntegerValue, Vouched, VouchedError};
 
 #[derive(Vouched, Debug, Clone, PartialEq, Eq)]
-#[vouched(len(1..=5))]
+#[vouched(len(1..=5), impls(try_from(&str)))]
 struct Name(String);
 
 impl Name {
@@ -17,13 +19,13 @@ impl Name {
 
 #[test]
 fn vouched_ok() {
-    let v = Name::try_from("Alice".to_owned());
+    let v = Name::try_from("Alice");
     assert_eq!(v.as_ref().map(|name| name.as_str()), Ok("Alice"));
 }
 
 #[test]
 fn vouched_err_first() {
-    let v = Name::try_from(String::new());
+    let v = Name::try_from("");
     let e = v.as_ref().map_err(|err| {
         err.as_too_short()
             .map(|too_short| (too_short.min(), too_short.actual()))
@@ -33,7 +35,7 @@ fn vouched_err_first() {
 
 #[test]
 fn vouched_err_second() {
-    let v = Name::try_from("TooLong".to_owned());
+    let v = Name::try_from("TooLong");
     let e = v.as_ref().map_err(|err| {
         err.as_too_long()
             .map(|too_long| (too_long.max(), too_long.actual()))
@@ -212,7 +214,7 @@ fn range_to() {
 // ============================================================================
 
 #[derive(Vouched, Debug, Clone, PartialEq, Eq)]
-#[vouched(chars("abc_"))]
+#[vouched(chars("abc_"), impls(try_from(&str)))]
 struct CharsByString(String);
 impl CharsByString {
     fn as_str(&self) -> &str {
@@ -221,7 +223,7 @@ impl CharsByString {
 }
 
 #[derive(Vouched, Debug, Clone, PartialEq, Eq)]
-#[vouched(chars('a'..='z', '0'..='9', '_'))]
+#[vouched(chars('a'..='z', '0'..='9', '_'), impls(try_from(&str)))]
 struct CharsByRange(String);
 impl CharsByRange {
     fn as_str(&self) -> &str {
@@ -230,18 +232,18 @@ impl CharsByRange {
 }
 
 #[derive(Vouched, Debug, Clone, PartialEq, Eq)]
-#[vouched(len(..=3), chars('a'..='z'))]
+#[vouched(len(..=3), chars('a'..='z'), impls(try_from(&str)))]
 struct LenThenChars(String);
 
 #[test]
 fn chars_string_literal_success() {
-    let v = CharsByString::try_from("ab_c".to_owned());
+    let v = CharsByString::try_from("ab_c");
     assert_eq!(v.as_ref().map(|s| s.as_str()), Ok("ab_c"));
 }
 
 #[test]
 fn chars_string_literal_invalid_char() {
-    let v = CharsByString::try_from("ab-c".to_owned());
+    let v = CharsByString::try_from("ab-c");
     let e = v.as_ref().map_err(|err| {
         err.as_invalid_char()
             .map(|invalid| (invalid.index(), invalid.ch()))
@@ -251,13 +253,13 @@ fn chars_string_literal_invalid_char() {
 
 #[test]
 fn chars_range_literal_success() {
-    let v = CharsByRange::try_from("user_123".to_owned());
+    let v = CharsByRange::try_from("user_123");
     assert_eq!(v.as_ref().map(|s| s.as_str()), Ok("user_123"));
 }
 
 #[test]
 fn chars_range_literal_invalid_char() {
-    let v = CharsByRange::try_from("abc-123".to_owned());
+    let v = CharsByRange::try_from("abc-123");
     let invalid_char = v.as_ref().map_err(|err| {
         err.as_invalid_char()
             .map(|invalid| (invalid.index(), invalid.ch()))
@@ -267,7 +269,7 @@ fn chars_range_literal_invalid_char() {
 
 #[test]
 fn current_implementation_runs_chars_after_other_validations() {
-    let v = LenThenChars::try_from("ab$#".to_owned());
+    let v = LenThenChars::try_from("ab$#");
     let e = v.as_ref().map_err(|err| {
         err.as_too_long()
             .map(|too_long| (too_long.max(), too_long.actual()))
@@ -414,6 +416,91 @@ fn id_with_range_try_from_impl_overflow_generates_out_of_range() {
 }
 
 // ============================================================================
+// Tests for impls(try_from(&str)) - borrowed string sources
+// ============================================================================
+
+type AliasString = String;
+
+#[derive(Vouched, Debug, Clone, PartialEq, Eq)]
+#[vouched(len(1..=4), impls(try_from(&str)))]
+struct AliasLabel(AliasString);
+impl AliasLabel {
+    fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+#[derive(Vouched, Debug, Clone, PartialEq, Eq)]
+#[vouched(len(1..=4), impls(try_from(&str)))]
+struct BoxedLabel(Box<str>);
+impl BoxedLabel {
+    fn as_str(&self) -> &str {
+        self.0.as_ref()
+    }
+}
+
+#[derive(Vouched, Debug, Clone, PartialEq, Eq)]
+#[vouched(len(1..=4), impls(try_from(&str)))]
+struct RcLabel(Rc<str>);
+impl RcLabel {
+    fn as_str(&self) -> &str {
+        self.0.as_ref()
+    }
+}
+
+#[derive(Vouched, Debug, Clone, PartialEq, Eq)]
+#[vouched(len(1..=4), impls(try_from(&str)))]
+struct ArcLabel(Arc<str>);
+impl ArcLabel {
+    fn as_str(&self) -> &str {
+        self.0.as_ref()
+    }
+}
+
+#[test]
+fn impls_try_from_borrowed_str_accepts_common_owned_string_inners() {
+    let alias = AliasLabel::try_from("type");
+    assert_eq!(alias.as_ref().map(|label| label.as_str()), Ok("type"));
+
+    let boxed = BoxedLabel::try_from("box");
+    assert_eq!(boxed.as_ref().map(|label| label.as_str()), Ok("box"));
+
+    let rc = RcLabel::try_from("rc");
+    assert_eq!(rc.as_ref().map(|label| label.as_str()), Ok("rc"));
+
+    let arc = ArcLabel::try_from("arc");
+    assert_eq!(arc.as_ref().map(|label| label.as_str()), Ok("arc"));
+
+    let too_long = AliasLabel::try_from("alias").err();
+    let too_long = too_long
+        .as_ref()
+        .and_then(|err| err.as_too_long())
+        .map(|too_long| (too_long.max(), too_long.actual()));
+    assert_eq!(too_long, Some((4, 5)));
+
+    let too_long = BoxedLabel::try_from("boxed").err();
+    let too_long = too_long
+        .as_ref()
+        .and_then(|err| err.as_too_long())
+        .map(|too_long| (too_long.max(), too_long.actual()));
+    assert_eq!(too_long, Some((4, 5)));
+
+    let too_long = RcLabel::try_from("owned").err();
+    let too_long = too_long
+        .as_ref()
+        .and_then(|err| err.as_too_long())
+        .map(|too_long| (too_long.max(), too_long.actual()));
+    assert_eq!(too_long, Some((4, 5)));
+
+    let too_long = ArcLabel::try_from("overflow").err();
+    let too_long = too_long
+        .as_ref()
+        .and_then(|err| err.as_too_long())
+        .map(|too_long| (too_long.max(), too_long.actual()));
+    assert_eq!(too_long, Some((4, 8)));
+}
+
+// ============================================================================
 // Tests for impls-only Vouched (no validation markers)
 // ============================================================================
 
@@ -451,7 +538,7 @@ fn impls_only_inner_try_from_still_works() {
 // ============================================================================
 
 #[derive(Vouched, Debug, Clone, PartialEq, Eq)]
-#[vouched(len(2..=2))]
+#[vouched(len(2..=2), impls(try_from(&str)))]
 struct TwoChars(String);
 impl TwoChars {
     fn as_str(&self) -> &str {
@@ -460,7 +547,7 @@ impl TwoChars {
 }
 
 #[derive(Vouched, Debug, Clone, PartialEq, Eq)]
-#[vouched(chars('界'))]
+#[vouched(chars('界'), impls(try_from(&str)))]
 struct OnlyWorldChar(String);
 impl OnlyWorldChar {
     fn as_str(&self) -> &str {
@@ -470,10 +557,10 @@ impl OnlyWorldChar {
 
 #[test]
 fn len_counts_untrimmed_unicode_chars_not_bytes() {
-    let valid = TwoChars::try_from("界a".to_owned());
+    let valid = TwoChars::try_from("界a");
     assert_eq!(valid.as_ref().map(|s| s.as_str()), Ok("界a"));
 
-    let invalid = TwoChars::try_from("界界a".to_owned());
+    let invalid = TwoChars::try_from("界界a");
     let too_long = invalid.as_ref().map_err(|err| {
         err.as_too_long()
             .map(|too_long| (too_long.max(), too_long.actual()))
@@ -483,17 +570,17 @@ fn len_counts_untrimmed_unicode_chars_not_bytes() {
 
 #[test]
 fn chars_does_not_trim_and_reports_char_index() {
-    let valid = OnlyWorldChar::try_from("界界".to_owned());
+    let valid = OnlyWorldChar::try_from("界界");
     assert_eq!(valid.as_ref().map(|s| s.as_str()), Ok("界界"));
 
-    let err = OnlyWorldChar::try_from("界a".to_owned()).err();
+    let err = OnlyWorldChar::try_from("界a").err();
     let invalid_char = err
         .as_ref()
         .and_then(|err| err.as_invalid_char())
         .map(|invalid| (invalid.index(), invalid.ch()));
     assert_eq!(invalid_char, Some((1, 'a')));
 
-    let leading_space_err = OnlyWorldChar::try_from(" 界".to_owned()).err();
+    let leading_space_err = OnlyWorldChar::try_from(" 界").err();
     let invalid_char = leading_space_err
         .as_ref()
         .and_then(|err| err.as_invalid_char())
@@ -657,7 +744,7 @@ fn float_range_uses_regular_float_comparisons_for_infinities_and_signed_zero() {
 }
 
 #[derive(Vouched, Debug, Clone, PartialEq, Eq)]
-#[vouched(error(name = CustomLengthError), len(1..=4))]
+#[vouched(error(name = CustomLengthError), len(1..=4), impls(try_from(&str)))]
 struct CustomLength(String);
 
 enum CustomLengthVouchedError {}
@@ -666,7 +753,7 @@ enum CustomLengthVouchedError {}
 fn custom_error_name_avoids_default_name_collision() {
     assert_eq!(core::mem::size_of::<CustomLengthVouchedError>(), 0);
     assert_eq!(
-        CustomLength::try_from("hello".to_owned()),
+        CustomLength::try_from("hello"),
         Err(CustomLengthError::TooLong(vouched::TooLongError::new(4, 5)))
     );
 }
@@ -675,14 +762,18 @@ mod configured_error_visibility {
     use vouched::Vouched;
 
     #[derive(Vouched, Debug, Clone, PartialEq, Eq)]
-    #[vouched(error(vis = pub(crate), name = CrateVisibleLengthError), len(1..=4))]
+    #[vouched(
+        error(vis = pub(crate), name = CrateVisibleLengthError),
+        len(1..=4),
+        impls(try_from(&str))
+    )]
     pub(crate) struct CrateVisibleLength(String);
 }
 
 #[test]
 fn custom_error_visibility_and_name_are_configurable() {
     assert_eq!(
-        configured_error_visibility::CrateVisibleLength::try_from("hello".to_owned()),
+        configured_error_visibility::CrateVisibleLength::try_from("hello"),
         Err(
             configured_error_visibility::CrateVisibleLengthError::TooLong(
                 vouched::TooLongError::new(4, 5)

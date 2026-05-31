@@ -18,7 +18,7 @@
 //! use vouched::Vouched;
 //!
 //! #[derive(Debug, PartialEq, Eq, Vouched)]
-//! #[vouched(len(1..=64), chars('a'..='z', '0'..='9', '_'))]
+//! #[vouched(len(1..=64), chars('a'..='z', '0'..='9', '_'), impls(try_from(&str)))]
 //! struct Slug(String);
 //! impl Slug {
 //!    fn as_str(&self) -> &str {
@@ -26,7 +26,7 @@
 //!    }
 //! }
 //!
-//! let slug = Slug::try_from("hello_123".to_owned())?;
+//! let slug = Slug::try_from("hello_123")?;
 //! assert_eq!(slug.as_str(), "hello_123");
 //! # Ok::<(), SlugVouchedError>(())
 //! ```
@@ -36,9 +36,14 @@
 //! For a type named `Slug`, `#[derive(Vouched)]` generates:
 //!
 //! - `impl TryFrom<Inner> for Slug`, where `Inner` is the tuple field type.
-//! - additional fallible integer `TryFrom` implementations requested by `impls(try_from(...))`.
+//! - additional `TryFrom` implementations requested by `impls(try_from(...))`.
 //! - a generated error enum named `SlugVouchedError` by default.
 //! - `Display`, `core::error::Error`, and [`VouchedError`] for that error enum.
+//!
+//! `impls(try_from(...))` supports fallible fixed-width integer conversions before validation.
+//! For string validation newtypes, `impls(try_from(&str))` validates the borrowed input first and then constructs a
+//! supported owned string inner value. Supported inners are `String`, `Box<str>`, `Rc<str>`, and `Arc<str>`.
+//! Custom string wrapper inners and borrowed inners that store the input lifetime are not supported.
 //!
 //! The generated error enum uses the derived type's visibility by default.
 //! Its name and visibility can be configured with `error(...)`:
@@ -64,7 +69,8 @@
 //!
 //! `len(...)`, `chars(...)`, and `range(...)` can each be specified at most once.
 //! To combine character sets, put all sources in one marker: `chars('a'..='z', '0'..='9', '_')`.
-//! `impls(try_from(...))` can also be specified once to add extra fallible integer `TryFrom` implementations before validation.
+//! `impls(try_from(...))` can also be specified once to add extra fallible integer or `&str` `TryFrom` implementations
+//! before validation.
 //!
 //! `len(...)` and `chars(...)` use `AsRef<str>` and inspect untrimmed Unicode scalar values. Length is not measured in bytes.
 //!
